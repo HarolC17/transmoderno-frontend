@@ -24,6 +24,7 @@ export default function ReportesTab() {
     const [datos, setDatos] = useState([])
     const [tipoGrafico, setTipoGrafico] = useState('barras')
     const [cargando, setCargando] = useState(false)
+    const [exportandoDetalle, setExportandoDetalle] = useState(false)
 
     useEffect(() => {
         api.get('/rutas').then(res => setRutas(res.data.filter(r => r.activa)))
@@ -104,7 +105,7 @@ export default function ReportesTab() {
                 ? `"${d.nombre}",${d.pre},${d.post}`
                 : `"${d.nombre}",${d.valor}`
         )
-        const csv = [encabezado, ...filas].join('\n')
+        const csv = '\uFEFF' + [encabezado, ...filas].join('\n')
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
@@ -112,6 +113,32 @@ export default function ReportesTab() {
         a.download = `reporte_${filtros.tipo}_${new Date().toISOString().split('T')[0]}.csv`
         a.click()
         URL.revokeObjectURL(url)
+    }
+
+    const handleExportarDetalle = async () => {
+        setExportandoDetalle(true)
+        try {
+            const params = construirParams()
+            const res = await api.get(`/reportes/asistencia/detalle?${params}`)
+            const datos = res.data
+
+            const encabezado = 'Nombre,Identificación,Programa Académico,Semestre,Estamento,Ruta,Sesión,Fecha'
+            const filas = datos.map(d =>
+                `"${d.nombreCompleto}","${d.numeroIdentificacion}","${d.programaAcademico}",${d.semestre || ''},"${d.estamento}","${d.ruta}","${d.sesion}","${d.fecha}"`
+            )
+            const csv = '\uFEFF' + [encabezado, ...filas].join('\n')
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = `asistencia_detalle_${new Date().toISOString().split('T')[0]}.csv`
+            a.click()
+            URL.revokeObjectURL(url)
+        } catch {
+            alert('Error al exportar. Intenta de nuevo.')
+        } finally {
+            setExportandoDetalle(false)
+        }
     }
 
     const datosNormalizados = datos.map(d => ({
@@ -125,7 +152,13 @@ export default function ReportesTab() {
         <div className="flex flex-col gap-4">
 
             <div className="bg-white rounded-2xl border border-gray-100 p-5 flex flex-col gap-4">
-                <p className="text-sm font-semibold text-gray-700">Configura tu reporte</p>
+                <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-gray-700">Configura tu reporte</p>
+                    <button onClick={handleExportarDetalle} disabled={exportandoDetalle}
+                            className="flex items-center gap-1.5 border border-purple-600 text-purple-600 px-3 py-1.5 rounded-xl text-xs font-semibold hover:bg-purple-50 transition-all disabled:opacity-50">
+                        {exportandoDetalle ? 'Exportando...' : '⬇ Exportar detalle individual'}
+                    </button>
+                </div>
 
                 <div className="grid grid-cols-3 gap-4">
                     <div className="flex flex-col gap-1">
@@ -263,7 +296,7 @@ export default function ReportesTab() {
                             </button>
                             <button onClick={handleExportarCSV}
                                     className="flex items-center gap-1.5 border border-blue-600 text-blue-600 px-3 py-1.5 rounded-xl text-xs font-semibold hover:bg-blue-50 transition-all">
-                                ⬇ CSV
+                                ⬇ CSV resumen
                             </button>
                         </div>
                     </div>
