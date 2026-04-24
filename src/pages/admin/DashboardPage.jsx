@@ -12,13 +12,12 @@ export default function DashboardPage() {
     }
 
     const menuItems = [
-        { path: '/admin', label: 'Dashboard', icon: '◉' },
+        { path: '/admin', label: 'Panel Principal', icon: '◉' },
         { path: '/admin/participantes', label: 'Participantes', icon: '👥' },
         { path: '/admin/inscripciones', label: 'Inscripciones', icon: '📋' },
         { path: '/admin/sesiones', label: 'Sesiones', icon: '📅' },
         { path: '/admin/asistencia', label: 'Asistencia', icon: '✓' },
-        { path: '/admin/alertas', label: 'Alertas', icon: '🔔' },
-        { path: '/admin/reportes', label: 'Reportes', icon: '📊' },
+        { path: '/admin/analisis', label: 'Análisis', icon: '📊' },
     ]
 
     return (
