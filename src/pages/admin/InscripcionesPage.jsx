@@ -9,6 +9,14 @@ const colorEstado = {
     FINALIZADA: 'bg-gray-100 text-gray-600'
 }
 
+const MOTIVOS = [
+    'Falta de tiempo',
+    'Problemas personales',
+    'Cambio de horario',
+    'Desinterés',
+    'Otro'
+]
+
 export default function InscripcionesPage() {
     const [inscripciones, setInscripciones] = useState([])
     const [total, setTotal] = useState(0)
@@ -17,6 +25,9 @@ export default function InscripcionesPage() {
     const [filtroEstado, setFiltroEstado] = useState('TODOS')
     const [filtroRuta, setFiltroRuta] = useState('TODOS')
     const [cerrando, setCerrando] = useState(false)
+    const [modalCancelar, setModalCancelar] = useState(null)
+    const [motivoSeleccionado, setMotivoSeleccionado] = useState('')
+    const [cancelando, setCancelando] = useState(false)
     const size = 10
 
     const cargar = async (page = 0) => {
@@ -35,13 +46,20 @@ export default function InscripcionesPage() {
 
     useEffect(() => { cargar() }, [])
 
-    const handleCancelar = async (inscripcion) => {
-        if (!confirm(`¿Cancelar la inscripción de ${inscripcion.nombreParticipante} en ${inscripcion.nombreRuta}?`)) return
+    const handleConfirmarCancelar = async () => {
+        if (!motivoSeleccionado) return
+        setCancelando(true)
         try {
-            await api.patch(`/inscripciones/${inscripcion.id}/cancelar`)
+            await api.patch(`/inscripciones/${modalCancelar.id}/cancelar`, {
+                motivo: motivoSeleccionado
+            })
+            setModalCancelar(null)
+            setMotivoSeleccionado('')
             cargar(pagina)
         } catch {
             alert('Error al cancelar. Intenta de nuevo.')
+        } finally {
+            setCancelando(false)
         }
     }
 
@@ -59,7 +77,6 @@ export default function InscripcionesPage() {
     }
 
     const handleCerrarSemestre = async () => {
-        const activas = inscripciones.filter(i => i.estado === 'ACTIVA').length
         if (!confirm(`¿Cerrar el semestre? Esta acción finalizará todas las inscripciones activas y no se puede deshacer.`)) return
         setCerrando(true)
         try {
@@ -83,6 +100,43 @@ export default function InscripcionesPage() {
 
     return (
         <div className="flex flex-col gap-6">
+
+            {/* Modal cancelar */}
+            {modalCancelar && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+                     onClick={() => { setModalCancelar(null); setMotivoSeleccionado('') }}>
+                    <div className="bg-white rounded-2xl p-6 w-full max-w-md mx-4 flex flex-col gap-4"
+                         onClick={e => e.stopPropagation()}>
+                        <div>
+                            <h3 className="text-base font-semibold text-gray-800">Motivo de cancelación</h3>
+                            <p className="text-xs text-gray-400 mt-0.5">
+                                {modalCancelar.nombreParticipante} — {modalCancelar.nombreRuta}
+                            </p>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                            {MOTIVOS.map(m => (
+                                <button key={m} onClick={() => setMotivoSeleccionado(m)}
+                                        className={`px-4 py-3 rounded-xl text-sm text-left transition-all
+                                            ${motivoSeleccionado === m
+                                            ? 'bg-green-700 text-white font-semibold'
+                                            : 'bg-gray-50 text-gray-700 hover:bg-gray-100'}`}>
+                                    {m}
+                                </button>
+                            ))}
+                        </div>
+                        <button onClick={handleConfirmarCancelar}
+                                disabled={!motivoSeleccionado || cancelando}
+                                className="bg-red-500 text-white rounded-xl py-2.5 text-sm font-semibold hover:bg-red-600 transition-all disabled:opacity-50">
+                            {cancelando ? 'Cancelando...' : 'Confirmar cancelación'}
+                        </button>
+                        <button onClick={() => { setModalCancelar(null); setMotivoSeleccionado('') }}
+                                className="border border-gray-200 text-gray-500 rounded-xl py-2 text-sm hover:bg-gray-50 transition-all">
+                            Volver
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <div className="flex items-center justify-between">
                 <div>
                     <h2 className="text-xl font-semibold text-gray-800">Inscripciones</h2>
@@ -94,7 +148,6 @@ export default function InscripcionesPage() {
                 </button>
             </div>
 
-            {/* Filtros */}
             <div className="flex gap-3">
                 <div className="flex flex-col gap-1">
                     <label className="text-xs font-semibold text-gray-500">Estado</label>
@@ -128,6 +181,7 @@ export default function InscripcionesPage() {
                             <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Ruta</th>
                             <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Fecha</th>
                             <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Estado</th>
+                            <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Motivo</th>
                             <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Acciones</th>
                         </tr>
                         </thead>
@@ -157,9 +211,12 @@ export default function InscripcionesPage() {
                                         {i.estado}
                                     </span>
                                 </td>
+                                <td className="px-4 py-3 text-sm text-gray-500">
+                                    {i.motivo || '—'}
+                                </td>
                                 <td className="px-4 py-3 flex items-center gap-3">
                                     {i.estado === 'ACTIVA' && (
-                                        <button onClick={() => handleCancelar(i)}
+                                        <button onClick={() => setModalCancelar(i)}
                                                 className="text-xs text-red-500 hover:text-red-700 font-semibold transition-all">
                                             Cancelar
                                         </button>
