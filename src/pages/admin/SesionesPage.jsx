@@ -89,6 +89,46 @@ export default function SesionesPage() {
         }
     }
 
+    const handleImprimir = () => {
+        const contenido = document.getElementById('qr-print')
+        const ventana = window.open('', '_blank')
+        ventana.document.write(`
+            <html>
+            <head>
+                <title>QR - ${sesionQR.nombre}</title>
+                <style>
+                    body {
+                        font-family: sans-serif;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        height: 100vh;
+                        margin: 0;
+                    }
+                    h2 { font-size: 22px; margin-bottom: 4px; color: #166534; }
+                    p { font-size: 15px; color: #555; margin: 3px 0; }
+                    svg { width: 300px !important; height: 300px !important; margin: 20px 0; }
+                    .url { font-size: 12px; color: #999; margin-top: 8px; word-break: break-all; max-width: 320px; text-align: center; }
+                </style>
+            </head>
+            <body>
+                <h2>${sesionQR.nombre}</h2>
+                <p>${sesionQR.fecha}</p>
+                <p>${sesionQR.horaInicio} - ${sesionQR.horaFin}</p>
+                ${contenido.innerHTML}
+                <p class="url">${window.location.origin}/?sesion=${sesionQR.id}</p>
+            </body>
+            </html>
+        `)
+        ventana.document.close()
+        ventana.focus()
+        setTimeout(() => {
+            ventana.print()
+            ventana.close()
+        }, 500)
+    }
+
     const totalPaginas = Math.ceil(total / size)
     const urlBase = window.location.origin
 
@@ -104,16 +144,22 @@ export default function SesionesPage() {
                             <p className="text-sm font-semibold text-gray-800">{sesionQR.nombre}</p>
                             <p className="text-xs text-gray-400 mt-0.5">{sesionQR.fecha} · {sesionQR.horaInicio} - {sesionQR.horaFin}</p>
                         </div>
-                        <QRCodeSVG
-                            value={`${urlBase}/?sesion=${sesionQR.id}`}
-                            size={200}
-                            bgColor="#ffffff"
-                            fgColor="#166534"
-                            level="M"
-                        />
+                        <div id="qr-print">
+                            <QRCodeSVG
+                                value={`${urlBase}/?sesion=${sesionQR.id}`}
+                                size={200}
+                                bgColor="#ffffff"
+                                fgColor="#166534"
+                                level="M"
+                            />
+                        </div>
                         <p className="text-xs text-gray-400 text-center break-all">
                             {`${urlBase}/?sesion=${sesionQR.id}`}
                         </p>
+                        <button onClick={handleImprimir}
+                                className="w-full bg-green-700 text-white rounded-xl py-2.5 text-sm font-semibold hover:bg-green-800 transition-all">
+                            🖨 Imprimir QR
+                        </button>
                         <button onClick={() => setSesionQR(null)}
                                 className="w-full border border-gray-200 text-gray-500 rounded-xl py-2.5 text-sm hover:bg-gray-50 transition-all">
                             Cerrar
@@ -142,7 +188,6 @@ export default function SesionesPage() {
                                 {error}
                             </div>
                         )}
-
                         <div className="flex flex-col gap-1">
                             <label className="text-xs font-semibold text-gray-500">Ruta *</label>
                             <select required value={form.rutaId}
@@ -152,7 +197,6 @@ export default function SesionesPage() {
                                 {rutas.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
                             </select>
                         </div>
-
                         <div className="flex flex-col gap-1">
                             <label className="text-xs font-semibold text-gray-500">Actividad *</label>
                             <select required value={form.nombre}
@@ -167,7 +211,6 @@ export default function SesionesPage() {
                                 ))}
                             </select>
                         </div>
-
                         <div className="flex flex-col gap-1">
                             <label className="text-xs font-semibold text-gray-500">Fecha *</label>
                             <input type="date" required
@@ -176,7 +219,6 @@ export default function SesionesPage() {
                                    onChange={e => setForm({ ...form, fecha: e.target.value })}
                                    className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-50 outline-none focus:border-green-500" />
                         </div>
-
                         <div className="flex gap-3">
                             <div className="flex flex-col gap-1 flex-1">
                                 <label className="text-xs font-semibold text-gray-500">Hora inicio *</label>
@@ -191,7 +233,6 @@ export default function SesionesPage() {
                                        className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-50 outline-none focus:border-green-500" />
                             </div>
                         </div>
-
                         <div className="col-span-2 flex gap-3 justify-end">
                             <button type="button"
                                     onClick={() => { setMostrarForm(false); setError(''); setForm({ rutaId: '', nombre: '', fecha: '', horaInicio: '', horaFin: '' }) }}
