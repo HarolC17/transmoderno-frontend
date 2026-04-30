@@ -1,15 +1,35 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { buscarPorIdentificacion, buscarEnUcundinamarca } from '../../api/participantesApi'
+import api from '../../api/axios'
 import RegistroPage from './RegistroPage'
 import AsistenciaPage from './AsistenciaPage'
 import FichasPage from './FichasPage'
 import AyudaPage from './AyudaPage'
 import PerfilPage from './PerfilPage'
+import GatoAsistente from '../../components/GatoAsistente'
+
+const fondoEstilo = {
+    backgroundImage: 'linear-gradient(rgba(0,40,10,0.4), rgba(0,0,0,0.2)), url(/fondo.png)',
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+}
+
+const contenedorEstilo = {
+    backgroundColor: 'rgba(255, 255, 255, 0.96)',
+    backdropFilter: 'blur(8px)',
+    WebkitBackdropFilter: 'blur(8px)',
+    boxShadow: '0 -4px 30px rgba(0,0,0,0.25)',
+    marginTop: '28px',
+    borderRadius: '20px 20px 0 0',
+    minHeight: 'calc(100vh - 28px)',
+    overflow: 'hidden'
+}
 
 export default function EstudiantePage() {
     const [participante, setParticipante] = useState(null)
     const [estudianteUcundinamarca, setEstudianteUcundinamarca] = useState(null)
+    const [inscripciones, setInscripciones] = useState([])
     const [vista, setVista] = useState('identificacion')
     const [numeroId, setNumeroId] = useState('')
     const [buscando, setBuscando] = useState(false)
@@ -25,6 +45,12 @@ export default function EstudiantePage() {
         try {
             const res = await buscarPorIdentificacion(numeroId)
             setParticipante(res.data)
+            try {
+                const resInscripciones = await api.get(`/inscripciones/participante/${numeroId}`)
+                setInscripciones(resInscripciones.data)
+            } catch {
+                setInscripciones([])
+            }
             setVista('inicio')
         } catch {
             try {
@@ -83,8 +109,8 @@ export default function EstudiantePage() {
 
     if (vista === 'noEncontrado') {
         return (
-            <div className="min-h-screen bg-gray-50 flex flex-col items-center">
-                <div className="w-full max-w-md">
+            <div className="min-h-screen flex flex-col items-center" style={fondoEstilo}>
+                <div className="w-full max-w-md" style={contenedorEstilo}>
                     <div className="bg-green-800 px-6 py-8 text-center">
                         <h1 className="text-2xl font-semibold text-white">Gimnasio Transmoderno</h1>
                         <p className="text-green-300 text-sm mt-1">UCundinamarca · Fusagasugá</p>
@@ -109,9 +135,9 @@ export default function EstudiantePage() {
 
     if (vista === 'inicio') {
         return (
-            <div className="min-h-screen bg-gray-50 flex flex-col items-center">
-                <div className="w-full max-w-md">
-                    <div className="bg-green-800 px-6 py-8 text-center relative">
+            <div className="min-h-screen flex flex-col items-center" style={fondoEstilo}>
+                <div className="w-full max-w-md" style={contenedorEstilo}>
+                    <div className="bg-green-800 px-6 py-6 text-center relative">
                         <button
                             onClick={() => setVista('perfil')}
                             className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-all"
@@ -120,14 +146,9 @@ export default function EstudiantePage() {
                         </button>
                         <h1 className="text-2xl font-semibold text-white">Gimnasio Transmoderno</h1>
                         <p className="text-green-300 text-sm mt-1">UCundinamarca · Fusagasugá</p>
-                        <span className="inline-block mt-3 bg-white/10 text-green-100 text-xs px-4 py-1 rounded-full border border-white/20">
-                            Sesión activa hoy
-                        </span>
                     </div>
+
                     <div className="p-4 flex flex-col gap-3">
-                        <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-xs text-green-800">
-                            Bienvenido/a, <strong>{participante.nombreCompleto}</strong>
-                        </div>
                         {sesionIdQR && (
                             <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800">
                                 📷 Llegaste desde un código QR. Puedes registrar tu asistencia directamente.
@@ -137,19 +158,25 @@ export default function EstudiantePage() {
                         <OptionCard icon="✅" iconBg="bg-orange-50" titulo="Registrar asistencia" descripcion="Confirma tu presencia en la sesión de hoy" onClick={() => setVista('asistencia')} />
                         <OptionCard icon="📝" iconBg="bg-blue-50" titulo="Fichas PRE / POST" descripcion="Cuestionario de seguimiento de bienestar" onClick={() => setVista('fichas')} />
                         <OptionCard icon="🙋" iconBg="bg-red-50" titulo="Levantar la mano" descripcion="Solicita orientación de manera discreta" onClick={() => setVista('ayuda')} />
-                        <button onClick={() => { setParticipante(null); setNumeroId(''); setVista('identificacion') }}
+                        <button onClick={() => { setParticipante(null); setNumeroId(''); setInscripciones([]); setVista('identificacion') }}
                                 className="text-xs text-gray-400 mt-2 hover:text-gray-600 transition-all">
                             No soy {participante.nombreCompleto}
                         </button>
                     </div>
                 </div>
+
+                <GatoAsistente
+                    participante={participante}
+                    inscripciones={inscripciones}
+                    onNavegar={(v) => setVista(v)}
+                />
             </div>
         )
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col items-center">
-            <div className="w-full max-w-md">
+        <div className="min-h-screen flex flex-col items-center" style={fondoEstilo}>
+            <div className="w-full max-w-md" style={contenedorEstilo}>
                 <div className="bg-green-800 px-6 py-8 text-center">
                     <h1 className="text-2xl font-semibold text-white">Gimnasio Transmoderno</h1>
                     <p className="text-green-300 text-sm mt-1">UCundinamarca · Fusagasugá</p>
@@ -172,7 +199,7 @@ export default function EstudiantePage() {
                             onChange={(e) => setNumeroId(e.target.value)}
                             placeholder="Ej. 1000179920"
                             required
-                            className="border border-gray-200 rounded-xl px-4 py-3 text-sm bg-gray-50 outline-none focus:border-green-500 focus:bg-white text-center text-lg"
+                            className="border border-gray-200 rounded-xl px-4 py-3 text-sm bg-white outline-none focus:border-green-500 text-center text-lg"
                         />
                         <button type="submit" disabled={buscando}
                                 className="bg-green-700 text-white rounded-xl py-3 text-sm font-semibold hover:bg-green-800 transition-all disabled:opacity-50">

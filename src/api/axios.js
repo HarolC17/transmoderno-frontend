@@ -19,9 +19,12 @@ api.interceptors.response.use(
     (response) => response,
     (error) => {
         if (error.response?.status === 403) {
-            localStorage.removeItem('token')
-            localStorage.removeItem('usuario')
-            window.location.href = '/admin/login'
+            const esRutaAdmin = window.location.pathname.startsWith('/admin')
+            if (esRutaAdmin) {
+                localStorage.removeItem('token')
+                localStorage.removeItem('usuario')
+                window.location.href = '/admin/login'
+            }
         }
         return Promise.reject(error)
     }

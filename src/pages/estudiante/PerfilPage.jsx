@@ -9,6 +9,23 @@ const MOTIVOS = [
     'Otro'
 ]
 
+const fondoEstilo = {
+    backgroundImage: 'linear-gradient(rgba(0,40,10,0.4), rgba(0,0,0,0.2)), url(/fondo.png)',
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+}
+
+const contenedorEstilo = {
+    backgroundColor: 'rgba(255, 255, 255, 0.96)',
+    backdropFilter: 'blur(8px)',
+    WebkitBackdropFilter: 'blur(8px)',
+    boxShadow: '0 -4px 30px rgba(0,0,0,0.25)',
+    marginTop: '28px',
+    borderRadius: '20px 20px 0 0',
+    minHeight: 'calc(100vh - 28px)',
+    overflow: 'hidden'
+}
+
 export default function PerfilPage({ participante, onVolver, onActualizar }) {
     const [rutas, setRutas] = useState([])
     const [inscripciones, setInscripciones] = useState([])
@@ -104,8 +121,8 @@ export default function PerfilPage({ participante, onVolver, onActualizar }) {
     const esEstudiante = participante.estamento === 'ESTUDIANTE'
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col items-center">
-            <div className="w-full max-w-md">
+        <div className="min-h-screen flex flex-col items-center" style={fondoEstilo}>
+            <div className="w-full max-w-md" style={contenedorEstilo}>
 
                 {/* Modal cancelar inscripción */}
                 {modalCancelar && (
@@ -162,7 +179,7 @@ export default function PerfilPage({ participante, onVolver, onActualizar }) {
                         </div>
                     )}
 
-                    {/* 1. Inscripciones — primero */}
+                    {/* 1. Inscripciones */}
                     <div className="bg-white border border-gray-100 rounded-xl p-4 flex flex-col gap-3">
                         <p className="text-xs font-semibold text-gray-500">Mis rutas</p>
 
@@ -220,7 +237,7 @@ export default function PerfilPage({ participante, onVolver, onActualizar }) {
                         )}
                     </div>
 
-                    {/* 2. Datos editables — segundo */}
+                    {/* 2. Datos editables */}
                     <div className="bg-white border border-gray-100 rounded-xl p-4 flex flex-col gap-3">
                         <p className="text-xs font-semibold text-gray-500">Datos que puedes actualizar</p>
 
@@ -250,7 +267,7 @@ export default function PerfilPage({ participante, onVolver, onActualizar }) {
                         </button>
                     </div>
 
-                    {/* 3. Datos no editables — al final */}
+                    {/* 3. Datos no editables */}
                     <div className="bg-white border border-gray-100 rounded-xl p-4 flex flex-col gap-2">
                         <p className="text-xs font-semibold text-gray-500 mb-1">Datos personales</p>
                         <InfoFila label="Nombre" valor={participante.nombreCompleto} />

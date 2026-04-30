@@ -6,6 +6,23 @@ import api from '../../api/axios'
 
 const ESTAMENTOS = ['ESTUDIANTE', 'DOCENTE', 'ADMINISTRATIVO', 'GRADUADO', 'COMUNIDAD']
 
+const fondoEstilo = {
+    backgroundImage: 'linear-gradient(rgba(0,40,10,0.4), rgba(0,0,0,0.2)), url(/fondo.png)',
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+}
+
+const contenedorEstilo = {
+    backgroundColor: 'rgba(255, 255, 255, 0.96)',
+    backdropFilter: 'blur(8px)',
+    WebkitBackdropFilter: 'blur(8px)',
+    boxShadow: '0 -4px 30px rgba(0,0,0,0.25)',
+    marginTop: '28px',
+    borderRadius: '20px 20px 0 0',
+    minHeight: 'calc(100vh - 28px)',
+    overflow: 'hidden'
+}
+
 export default function RegistroPage({ numeroIdentificacion, datosUcundinamarca, onExito, onVolver }) {
     const [rutas, setRutas] = useState([])
     const [programas, setProgramas] = useState([])
@@ -101,8 +118,8 @@ export default function RegistroPage({ numeroIdentificacion, datosUcundinamarca,
     // Vista con datos de UCundinamarca
     if (datosUcundinamarca) {
         return (
-            <div className="min-h-screen bg-gray-50 flex flex-col items-center">
-                <div className="w-full max-w-md">
+            <div className="min-h-screen flex flex-col items-center" style={fondoEstilo}>
+                <div className="w-full max-w-md" style={contenedorEstilo}>
                     <div className="bg-green-800 px-6 py-5 flex items-center gap-3">
                         <button onClick={onVolver} className="text-green-200 text-2xl leading-none">‹</button>
                         <div>
@@ -177,8 +194,8 @@ export default function RegistroPage({ numeroIdentificacion, datosUcundinamarca,
 
     // Vista manual
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col items-center">
-            <div className="w-full max-w-md">
+        <div className="min-h-screen flex flex-col items-center" style={fondoEstilo}>
+            <div className="w-full max-w-md" style={contenedorEstilo}>
                 <div className="bg-green-800 px-6 py-5 flex items-center gap-3">
                     <button onClick={onVolver} className="text-green-200 text-2xl leading-none">‹</button>
                     <div>

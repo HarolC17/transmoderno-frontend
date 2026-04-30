@@ -1,6 +1,23 @@
 import { useState } from 'react'
 import { crearSolicitudAyuda } from '../../api/alertasApi'
 
+const fondoEstilo = {
+    backgroundImage: 'linear-gradient(rgba(0,40,10,0.4), rgba(0,0,0,0.2)), url(/fondo.png)',
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+}
+
+const contenedorEstilo = {
+    backgroundColor: 'rgba(255, 255, 255, 0.96)',
+    backdropFilter: 'blur(8px)',
+    WebkitBackdropFilter: 'blur(8px)',
+    boxShadow: '0 -4px 30px rgba(0,0,0,0.25)',
+    marginTop: '28px',
+    borderRadius: '20px 20px 0 0',
+    minHeight: 'calc(100vh - 28px)',
+    overflow: 'hidden'
+}
+
 export default function AyudaPage({ participante, onVolver }) {
     const [estado, setEstado] = useState('pendiente')
     const [cargando, setCargando] = useState(false)
@@ -19,28 +36,30 @@ export default function AyudaPage({ participante, onVolver }) {
 
     if (estado === 'enviado') {
         return (
-            <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6">
-                <div className="w-full max-w-md text-center flex flex-col items-center gap-5">
-                    <div className="text-7xl">🙋</div>
-                    <div>
-                        <h2 className="text-2xl font-semibold text-red-600">Solicitud enviada</h2>
-                        <p className="text-gray-500 text-sm mt-2">El equipo de Bienestar fue notificado y se pondrá en contacto contigo pronto.</p>
+            <div className="min-h-screen flex flex-col items-center" style={fondoEstilo}>
+                <div className="w-full max-w-md" style={contenedorEstilo}>
+                    <div className="flex flex-col items-center justify-center gap-5 p-10 text-center">
+                        <div className="text-7xl">🙋</div>
+                        <div>
+                            <h2 className="text-2xl font-semibold text-red-600">Solicitud enviada</h2>
+                            <p className="text-gray-500 text-sm mt-2">El equipo de Bienestar fue notificado y se pondrá en contacto contigo pronto.</p>
+                        </div>
+                        <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-xs text-green-800 w-full">
+                            Dar este paso es un acto de valentía. <strong>No estás solo/a.</strong>
+                        </div>
+                        <button onClick={onVolver}
+                                className="bg-green-700 text-white rounded-xl py-3 px-8 text-sm font-semibold hover:bg-green-800 transition-all">
+                            Volver al inicio
+                        </button>
                     </div>
-                    <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-xs text-green-800 w-full">
-                        Dar este paso es un acto de valentía. <strong>No estás solo/a.</strong>
-                    </div>
-                    <button onClick={onVolver}
-                            className="bg-green-700 text-white rounded-xl py-3 px-8 text-sm font-semibold hover:bg-green-800 transition-all">
-                        Volver al inicio
-                    </button>
                 </div>
             </div>
         )
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col items-center">
-            <div className="w-full max-w-md">
+        <div className="min-h-screen flex flex-col items-center" style={fondoEstilo}>
+            <div className="w-full max-w-md" style={contenedorEstilo}>
                 <div className="bg-green-800 px-6 py-5 flex items-center gap-3">
                     <button onClick={onVolver} className="text-green-200 text-2xl leading-none">‹</button>
                     <div>
