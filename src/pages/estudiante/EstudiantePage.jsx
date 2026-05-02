@@ -1,6 +1,6 @@
-import { useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { buscarPorIdentificacion, buscarEnUcundinamarca } from '../../api/participantesApi'
+import {useState} from 'react'
+import {useSearchParams} from 'react-router-dom'
+import {buscarPorIdentificacion, buscarEnUcundinamarca} from '../../api/participantesApi'
 import api from '../../api/axios'
 import RegistroPage from './RegistroPage'
 import AsistenciaPage from './AsistenciaPage'
@@ -71,45 +71,36 @@ export default function EstudiantePage() {
         setVista('inicio')
     }
 
-    if (vista === 'confirmacion') return (
-        <RegistroPage
+    if (vista === 'confirmacion') return (<RegistroPage
             numeroIdentificacion={numeroId}
             datosUcundinamarca={estudianteUcundinamarca}
             onExito={handleRegistroExitoso}
             onVolver={() => setVista('identificacion')}
-        />
-    )
+        />)
 
-    if (vista === 'registro') return (
-        <RegistroPage
+    if (vista === 'registro') return (<RegistroPage
             numeroIdentificacion={numeroId}
             datosUcundinamarca={null}
             onExito={handleRegistroExitoso}
             onVolver={() => setVista('noEncontrado')}
-        />
-    )
+        />)
 
-    if (vista === 'asistencia') return (
-        <AsistenciaPage
+    if (vista === 'asistencia') return (<AsistenciaPage
             participante={participante}
             sesionIdQR={sesionIdQR}
             onVolver={() => setVista('inicio')}
-        />
-    )
+        />)
 
-    if (vista === 'fichas') return <FichasPage participante={participante} onVolver={() => setVista('inicio')} />
-    if (vista === 'ayuda') return <AyudaPage participante={participante} onVolver={() => setVista('inicio')} />
-    if (vista === 'perfil') return (
-        <PerfilPage
+    if (vista === 'fichas') return <FichasPage participante={participante} onVolver={() => setVista('inicio')}/>
+    if (vista === 'ayuda') return <AyudaPage participante={participante} onVolver={() => setVista('inicio')}/>
+    if (vista === 'perfil') return (<PerfilPage
             participante={participante}
             onVolver={() => setVista('inicio')}
             onActualizar={(datos) => setParticipante(datos)}
-        />
-    )
+        />)
 
     if (vista === 'noEncontrado') {
-        return (
-            <div className="min-h-screen flex flex-col items-center" style={fondoEstilo}>
+        return (<div className="min-h-screen flex flex-col items-center" style={fondoEstilo}>
                 <div className="w-full max-w-md" style={contenedorEstilo}>
                     <div className="bg-green-800 px-6 py-8 text-center">
                         <h1 className="text-2xl font-semibold text-white">Gimnasio Transmoderno</h1>
@@ -129,70 +120,85 @@ export default function EstudiantePage() {
                         </button>
                     </div>
                 </div>
-            </div>
-        )
+            </div>)
     }
 
     if (vista === 'inicio') {
-        return (
-            <div className="min-h-screen flex flex-col items-center" style={fondoEstilo}>
-                <div className="w-full max-w-md" style={contenedorEstilo}>
-                    <div className="bg-green-800 px-6 py-6 text-center relative">
-                        <button
-                            onClick={() => setVista('perfil')}
-                            className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-all"
-                            title="Mi perfil">
-                            👤
-                        </button>
-                        <h1 className="text-2xl font-semibold text-white">Gimnasio Transmoderno</h1>
-                        <p className="text-green-300 text-sm mt-1">UCundinamarca · Fusagasugá</p>
+        return (<div className="min-h-screen flex flex-col items-center" style={fondoEstilo}>
+            <div className="w-full max-w-md" style={contenedorEstilo}>
+                <div className="bg-green-800 px-6 py-6 text-center relative">
+                    <button
+                        onClick={() => setVista('perfil')}
+                        className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-all"
+                        title="Mi perfil">
+                        👤
+                    </button>
+                    <h1 className="text-2xl font-semibold text-white">Gimnasio Transmoderno</h1>
+                    <p className="text-green-300 text-sm mt-1">UCundinamarca · Fusagasugá</p>
+                    <span
+                        className="inline-block mt-3 bg-white/10 text-green-100 text-xs px-4 py-1 rounded-full border border-white/20">
+                         Sesión activa hoy
+                    </span>
+                </div>
+
+                <div className="p-4 flex flex-col gap-3">
+                    <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-xs text-green-800">
+                        Bienvenido/a, <strong>{participante.nombreCompleto}</strong>
                     </div>
 
-                    <div className="p-4 flex flex-col gap-3">
-                        {sesionIdQR && (
-                            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800">
-                                📷 Llegaste desde un código QR. Puedes registrar tu asistencia directamente.
-                            </div>
-                        )}
-                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mt-1">Opciones disponibles</p>
-                        <OptionCard icon="✅" iconBg="bg-orange-50" titulo="Registrar asistencia" descripcion="Confirma tu presencia en la sesión de hoy" onClick={() => setVista('asistencia')} />
-                        <OptionCard icon="📝" iconBg="bg-blue-50" titulo="Fichas PRE / POST" descripcion="Cuestionario de seguimiento de bienestar" onClick={() => setVista('fichas')} />
-                        <OptionCard icon="🙋" iconBg="bg-red-50" titulo="Levantar la mano" descripcion="Solicita orientación de manera discreta" onClick={() => setVista('ayuda')} />
-                        <button onClick={() => { setParticipante(null); setNumeroId(''); setInscripciones([]); setVista('identificacion') }}
-                                className="text-xs text-gray-400 mt-2 hover:text-gray-600 transition-all">
-                            No soy {participante.nombreCompleto}
-                        </button>
-                    </div>
+                    {sesionIdQR && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800">
+                            📷 Llegaste desde un código QR. Puedes registrar tu asistencia directamente.
+                        </div>)}
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mt-1">Opciones
+                        disponibles</p>
+                    <OptionCard icon="✅" iconBg="bg-orange-50" titulo="Registrar asistencia"
+                                descripcion="Confirma tu presencia en la sesión de hoy"
+                                onClick={() => setVista('asistencia')}/>
+                    <OptionCard icon="📝" iconBg="bg-blue-50" titulo="Fichas PRE / POST"
+                                descripcion="Cuestionario de seguimiento de bienestar"
+                                onClick={() => setVista('fichas')}/>
+                    <OptionCard icon="🙋" iconBg="bg-red-50" titulo="Levantar la mano"
+                                descripcion="Solicita orientación de manera discreta"
+                                onClick={() => setVista('ayuda')}/>
+                    <button onClick={() => {
+                        setParticipante(null);
+                        setNumeroId('');
+                        setInscripciones([]);
+                        setVista('identificacion')
+                    }}
+                            className="text-xs text-gray-400 mt-2 hover:text-gray-600 transition-all">
+                        No soy {participante.nombreCompleto}
+                    </button>
                 </div>
+            </div>
 
                 <GatoAsistente
                     participante={participante}
                     inscripciones={inscripciones}
                     onNavegar={(v) => setVista(v)}
                 />
-            </div>
-        )
+            </div>)
     }
 
-    return (
-        <div className="min-h-screen flex flex-col items-center" style={fondoEstilo}>
+    return (<div className="min-h-screen flex flex-col items-center" style={fondoEstilo}>
             <div className="w-full max-w-md" style={contenedorEstilo}>
                 <div className="bg-green-800 px-6 py-8 text-center">
                     <h1 className="text-2xl font-semibold text-white">Gimnasio Transmoderno</h1>
                     <p className="text-green-300 text-sm mt-1">UCundinamarca · Fusagasugá</p>
                 </div>
                 <div className="p-4 flex flex-col gap-4">
-                    {sesionIdQR && (
-                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800 text-center">
+                    {sesionIdQR && (<div
+                            className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800 text-center">
                             📷 Escaneaste el QR de una sesión. Ingresa tu número para registrar asistencia.
-                        </div>
-                    )}
+                        </div>)}
                     <div className="text-center mt-2">
                         <p className="text-sm font-semibold text-gray-700">Ingresa tu número de identificación</p>
                         <p className="text-xs text-gray-400 mt-1">Para acceder a las opciones del programa</p>
                     </div>
                     <form onSubmit={handleIdentificar} className="flex flex-col gap-3">
-                        {error && <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-xs text-red-800">{error}</div>}
+                        {error && <div
+                            className="bg-red-50 border border-red-200 rounded-xl p-3 text-xs text-red-800">{error}</div>}
                         <input
                             type="text"
                             value={numeroId}
@@ -208,20 +214,18 @@ export default function EstudiantePage() {
                     </form>
                 </div>
             </div>
-        </div>
-    )
+        </div>)
 }
 
-function OptionCard({ icon, iconBg, titulo, descripcion, onClick }) {
-    return (
-        <div onClick={onClick}
-             className="bg-white border border-gray-100 rounded-xl p-4 flex items-center gap-3 cursor-pointer hover:bg-gray-50 active:scale-95 transition-all">
-            <div className={`w-12 h-12 ${iconBg} rounded-xl flex items-center justify-center text-xl flex-shrink-0`}>{icon}</div>
+function OptionCard({icon, iconBg, titulo, descripcion, onClick}) {
+    return (<div onClick={onClick}
+                 className="bg-white border border-gray-100 rounded-xl p-4 flex items-center gap-3 cursor-pointer hover:bg-gray-50 active:scale-95 transition-all">
+            <div
+                className={`w-12 h-12 ${iconBg} rounded-xl flex items-center justify-center text-xl flex-shrink-0`}>{icon}</div>
             <div className="flex-1">
                 <p className="text-sm font-semibold text-gray-800">{titulo}</p>
                 <p className="text-xs text-gray-500 mt-0.5">{descripcion}</p>
             </div>
             <span className="text-gray-300 text-lg">›</span>
-        </div>
-    )
+        </div>)
 }

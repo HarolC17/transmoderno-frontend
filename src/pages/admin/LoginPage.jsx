@@ -18,7 +18,8 @@ export default function LoginPage() {
             const res = await login(form)
             setAuth(res.data.token, {
                 nombre: res.data.nombre,
-                correo: res.data.correo
+                correo: res.data.correo,
+                rol: res.data.rol
             })
             navigate('/admin')
         } catch {

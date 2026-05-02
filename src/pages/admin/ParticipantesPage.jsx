@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react'
 import * as XLSX from 'xlsx'
 import api from '../../api/axios'
+import { useAuth } from '../../hooks/useAuth'
 
 const PROGRAMAS_CACHE = { data: null }
 
 export default function ParticipantesPage() {
+    const { usuario } = useAuth()
+    const esAdmin = usuario?.rol === 'ADMIN'
+
     const [participantes, setParticipantes] = useState([])
     const [total, setTotal] = useState(0)
     const [pagina, setPagina] = useState(0)
@@ -103,7 +107,8 @@ export default function ParticipantesPage() {
     return (
         <div className="flex flex-col gap-6">
 
-            {modalEditar && (
+            {/* Modal editar — solo llega aquí si es ADMIN */}
+            {modalEditar && esAdmin && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
                      onClick={() => setModalEditar(null)}>
                     <div className="bg-white rounded-2xl p-6 w-full max-w-md mx-4 flex flex-col gap-4 max-h-[90vh] overflow-y-auto"
@@ -178,10 +183,12 @@ export default function ParticipantesPage() {
                     <h2 className="text-xl font-semibold text-gray-800">Participantes</h2>
                     <p className="text-sm text-gray-500 mt-0.5">{total} registrados en total</p>
                 </div>
-                <button onClick={handleExportar} disabled={exportando}
-                        className="flex items-center gap-2 border border-green-700 text-green-700 px-4 py-2 rounded-xl text-sm font-semibold hover:bg-green-50 transition-all disabled:opacity-50">
-                    {exportando ? 'Exportando...' : '⬇ Exportar Excel'}
-                </button>
+                {esAdmin && (
+                    <button onClick={handleExportar} disabled={exportando}
+                            className="flex items-center gap-2 border border-green-700 text-green-700 px-4 py-2 rounded-xl text-sm font-semibold hover:bg-green-50 transition-all disabled:opacity-50">
+                        {exportando ? 'Exportando...' : '⬇ Exportar Excel'}
+                    </button>
+                )}
             </div>
 
             <div className="bg-white rounded-2xl border border-gray-100">
@@ -207,7 +214,9 @@ export default function ParticipantesPage() {
                             <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Identificación</th>
                             <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Programa</th>
                             <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Semestre</th>
-                            <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Acciones</th>
+                            {esAdmin && (
+                                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Acciones</th>
+                            )}
                         </tr>
                         </thead>
                         <tbody>
@@ -224,12 +233,14 @@ export default function ParticipantesPage() {
                                 <td className="px-4 py-3 text-sm text-gray-600">{p.numeroIdentificacion}</td>
                                 <td className="px-4 py-3 text-sm text-gray-600 max-w-[180px] truncate">{p.programaAcademico}</td>
                                 <td className="px-4 py-3 text-sm text-gray-600">{p.semestre ? `${p.semestre}°` : '—'}</td>
-                                <td className="px-4 py-3">
-                                    <button onClick={() => setModalEditar({...p})}
-                                            className="text-xs text-blue-500 hover:text-blue-700 font-semibold transition-all">
-                                        Editar
-                                    </button>
-                                </td>
+                                {esAdmin && (
+                                    <td className="px-4 py-3">
+                                        <button onClick={() => setModalEditar({...p})}
+                                                className="text-xs text-blue-500 hover:text-blue-700 font-semibold transition-all">
+                                            Editar
+                                        </button>
+                                    </td>
+                                )}
                             </tr>
                         ))}
                         </tbody>

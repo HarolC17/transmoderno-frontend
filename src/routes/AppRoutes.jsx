@@ -9,10 +9,17 @@ import SesionesPage from '../pages/admin/SesionesPage'
 import AsistenciaPage from '../pages/admin/AsistenciaPage'
 import InscripcionesPage from '../pages/admin/InscripcionesPage'
 import AnalisisPage from '../pages/admin/AnalisisPage'
+import UsuariosPage from '../pages/admin/UsuariosPage'
 
-function RutaProtegida({children}) {
-    const {token} = useAuth()
-    return token ? children : <Navigate to="/admin/login"/>
+function RutaProtegida({ children }) {
+    const { token } = useAuth()
+    return token ? children : <Navigate to="/admin/login" />
+}
+
+function RutaConRol({ children, roles }) {
+    const { usuario } = useAuth()
+    if (!roles.includes(usuario?.rol)) return <Navigate to="/admin" />
+    return children
 }
 
 export default function AppRoutes() {
@@ -23,10 +30,27 @@ export default function AppRoutes() {
             <Route path="/admin" element={<RutaProtegida><DashboardPage/></RutaProtegida>}>
                 <Route index element={<DashboardHome/>}/>
                 <Route path="participantes" element={<ParticipantesPage/>}/>
-                <Route path="inscripciones" element={<InscripcionesPage/>}/>
-                <Route path="sesiones" element={<SesionesPage/>}/>
-                <Route path="asistencia" element={<AsistenciaPage/>}/>
+                <Route path="inscripciones" element={
+                    <RutaConRol roles={['ADMIN']}>
+                        <InscripcionesPage/>
+                    </RutaConRol>
+                }/>
+                <Route path="sesiones" element={
+                    <RutaConRol roles={['ADMIN', 'ENCARGADO']}>
+                        <SesionesPage/>
+                    </RutaConRol>
+                }/>
+                <Route path="asistencia" element={
+                    <RutaConRol roles={['ADMIN', 'ENCARGADO']}>
+                        <AsistenciaPage/>
+                    </RutaConRol>
+                }/>
                 <Route path="analisis" element={<AnalisisPage/>}/>
+                <Route path="usuarios" element={
+                    <RutaConRol roles={['ADMIN']}>
+                        <UsuariosPage/>
+                    </RutaConRol>
+                }/>
             </Route>
         </Routes>
     )
@@ -36,6 +60,9 @@ import {useState, useEffect} from 'react'
 import api from '../api/axios'
 
 function DashboardHome() {
+    const { usuario } = useAuth()
+    const rol = usuario?.rol
+
     const [stats, setStats] = useState({
         participantes: 0,
         sesiones: 0,
@@ -57,14 +84,28 @@ function DashboardHome() {
             setRutas(todasRutas)
 
             const rutasActivas = todasRutas.filter(r => r.activa)
-            const [resParticipantes, resAlertas, ...resSesiones] = await Promise.all([
-                api.get('/participantes?page=0&size=1'),
-                api.get('/alertas/ayuda?page=0&size=50'),
-                ...rutasActivas.map(r => api.get(`/sesiones/ruta/${r.id}?page=0&size=1`))
-            ])
 
-            const pendientes = resAlertas.data.contenido.filter(s => !s.atendida).length
-            const totalSesiones = resSesiones.reduce((acc, res) => acc + (res.data.totalElementos || 0), 0)
+            // Sesiones — solo roles que pueden verlas
+            let totalSesiones = 0
+            if (rol === 'ADMIN' || rol === 'ENCARGADO') {
+                const resSesiones = await Promise.all(
+                    rutasActivas.map(r => api.get(`/sesiones/ruta/${r.id}?page=0&size=1`))
+                )
+                totalSesiones = resSesiones.reduce((acc, res) => acc + (res.data.totalElementos || 0), 0)
+            }
+
+            // Participantes — todos los roles
+            const resParticipantes = await api.get('/participantes?page=0&size=1')
+
+            // Solicitudes pendientes — según rol
+            let pendientes = 0
+            if (rol === 'ADMIN' || rol === 'PSICOLOGO') {
+                const resAlertas = await api.get('/alertas/ayuda?page=0&size=50')
+                pendientes = resAlertas.data.contenido.filter(s => !s.atendida).length
+            } else if (rol === 'ENCARGADO') {
+                const resInasistencia = await api.get('/alertas/inasistencia?page=0&size=1')
+                pendientes = resInasistencia.data.totalElementos || 0
+            }
 
             setStats({
                 participantes: resParticipantes.data.totalElementos,
@@ -116,16 +157,20 @@ function DashboardHome() {
         }
     }
 
+    // Label de solicitudes según rol
+    const labelSolicitudes = rol === 'ENCARGADO' ? 'Alertas inasistencia' : 'Solicitudes pendientes'
+
     const cards = [
         {label: 'Participantes registrados', valor: stats.participantes, color: 'bg-green-50 border-green-100', texto: 'text-green-700', icono: '👥', path: '/admin/participantes'},
-        {label: 'Sesiones creadas', valor: stats.sesiones, color: 'bg-blue-50 border-blue-100', texto: 'text-blue-700', icono: '📅', path: '/admin/sesiones'},
-        {label: 'Solicitudes pendientes', valor: stats.solicitudesPendientes, color: 'bg-red-50 border-red-100', texto: 'text-red-700', icono: '🙋', path: '/admin/analisis'},
+        ...(rol === 'ADMIN' || rol === 'ENCARGADO' ? [{label: 'Sesiones creadas', valor: stats.sesiones, color: 'bg-blue-50 border-blue-100', texto: 'text-blue-700', icono: '📅', path: '/admin/sesiones'}] : []),
+        {label: labelSolicitudes, valor: stats.solicitudesPendientes, color: 'bg-red-50 border-red-100', texto: 'text-red-700', icono: '🙋', path: '/admin/analisis'},
     ]
 
     return (
         <div className="flex flex-col gap-6">
 
-            {modalRuta && (
+            {/* Modal rutas — solo ADMIN */}
+            {modalRuta && rol === 'ADMIN' && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
                      onClick={() => setModalRuta(null)}>
                     <div className="bg-white rounded-2xl p-6 w-full max-w-md mx-4 flex flex-col gap-4"
@@ -186,12 +231,17 @@ function DashboardHome() {
                     <div className="flex items-center justify-between mb-4">
                         <div>
                             <p className="text-sm font-semibold text-gray-700">Rutas del programa</p>
-                            <p className="text-xs text-gray-400 mt-0.5">Gestiona las rutas activas e inactivas</p>
+                            <p className="text-xs text-gray-400 mt-0.5">
+                                {rol === 'ADMIN' ? 'Gestiona las rutas activas e inactivas' : 'Rutas disponibles'}
+                            </p>
                         </div>
-                        <button onClick={abrirNueva}
-                                className="text-xs bg-green-700 text-white px-3 py-1.5 rounded-xl hover:bg-green-800 transition-all font-semibold">
-                            + Nueva
-                        </button>
+                        {/* + Nueva solo para ADMIN */}
+                        {rol === 'ADMIN' && (
+                            <button onClick={abrirNueva}
+                                    className="text-xs bg-green-700 text-white px-3 py-1.5 rounded-xl hover:bg-green-800 transition-all font-semibold">
+                                + Nueva
+                            </button>
+                        )}
                     </div>
                     <div className="flex flex-col gap-2">
                         {rutas.length === 0 ? (
@@ -208,17 +258,20 @@ function DashboardHome() {
                                         <p className="text-sm font-semibold text-gray-800 truncate">{r.nombre}</p>
                                         <p className="text-xs text-gray-400 truncate">{r.descripcion || 'Sin descripción'}</p>
                                     </div>
-                                    <div className="flex items-center gap-2 flex-shrink-0">
-                                        <button onClick={() => abrirEditar(r)}
-                                                className="text-xs text-blue-500 hover:text-blue-700 font-semibold transition-all">
-                                            Editar
-                                        </button>
-                                        <button onClick={() => handleToggleActiva(r)}
-                                                className={`text-xs font-semibold transition-all
-                                                    ${r.activa ? 'text-red-400 hover:text-red-600' : 'text-green-600 hover:text-green-800'}`}>
-                                            {r.activa ? 'Desactivar' : 'Activar'}
-                                        </button>
-                                    </div>
+                                    {/* Editar/Desactivar solo para ADMIN */}
+                                    {rol === 'ADMIN' && (
+                                        <div className="flex items-center gap-2 flex-shrink-0">
+                                            <button onClick={() => abrirEditar(r)}
+                                                    className="text-xs text-blue-500 hover:text-blue-700 font-semibold transition-all">
+                                                Editar
+                                            </button>
+                                            <button onClick={() => handleToggleActiva(r)}
+                                                    className={`text-xs font-semibold transition-all
+                                                        ${r.activa ? 'text-red-400 hover:text-red-600' : 'text-green-600 hover:text-green-800'}`}>
+                                                {r.activa ? 'Desactivar' : 'Activar'}
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             ))
                         )}
@@ -231,7 +284,7 @@ function DashboardHome() {
                     <div className="flex flex-col gap-2">
                         {[
                             {label: 'Ver participantes', path: '/admin/participantes', icono: '👥'},
-                            {label: 'Gestionar sesiones', path: '/admin/sesiones', icono: '📅'},
+                            ...(rol === 'ADMIN' || rol === 'ENCARGADO' ? [{label: 'Gestionar sesiones', path: '/admin/sesiones', icono: '📅'}] : []),
                             {label: 'Análisis y alertas', path: '/admin/analisis', icono: '📊'},
                         ].map((item, i) => (
                             <Link key={i} to={item.path}
