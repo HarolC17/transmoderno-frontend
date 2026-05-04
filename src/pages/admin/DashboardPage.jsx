@@ -18,6 +18,7 @@ export default function DashboardPage() {
         { path: '/admin/inscripciones', label: 'Inscripciones',   icon: '📋', roles: ['ADMIN'] },
         { path: '/admin/sesiones',      label: 'Sesiones',        icon: '📅', roles: ['ADMIN', 'ENCARGADO'] },
         { path: '/admin/asistencia',    label: 'Asistencia',      icon: '✓',  roles: ['ADMIN', 'ENCARGADO'] },
+        { path: '/admin/fichas',        label: 'Fichas',          icon: '📝', roles: ['ADMIN', 'PSICOLOGO'] },
         { path: '/admin/analisis',      label: 'Análisis',        icon: '📊', roles: ['ADMIN', 'PSICOLOGO', 'ENCARGADO'] },
         { path: '/admin/usuarios',      label: 'Usuarios',        icon: '🔐', roles: ['ADMIN'] },
     ].filter(item => item.roles.includes(rol))

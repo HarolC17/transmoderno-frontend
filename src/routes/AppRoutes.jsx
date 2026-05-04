@@ -1,5 +1,7 @@
 import {Routes, Route, Navigate, Link} from 'react-router-dom'
 import {useAuth} from '../hooks/useAuth'
+import {useState, useEffect} from 'react'
+import api from '../api/axios'
 
 import EstudiantePage from '../pages/estudiante/EstudiantePage'
 import LoginPage from '../pages/admin/LoginPage'
@@ -8,6 +10,7 @@ import ParticipantesPage from '../pages/admin/ParticipantesPage'
 import SesionesPage from '../pages/admin/SesionesPage'
 import AsistenciaPage from '../pages/admin/AsistenciaPage'
 import InscripcionesPage from '../pages/admin/InscripcionesPage'
+import FichasAdminPage from '../pages/admin/fichas/FichasAdminPage.jsx'
 import AnalisisPage from '../pages/admin/AnalisisPage'
 import UsuariosPage from '../pages/admin/UsuariosPage'
 
@@ -45,6 +48,11 @@ export default function AppRoutes() {
                         <AsistenciaPage/>
                     </RutaConRol>
                 }/>
+                <Route path="fichas" element={
+                    <RutaConRol roles={['ADMIN', 'PSICOLOGO']}>
+                        <FichasAdminPage/>
+                    </RutaConRol>
+                }/>
                 <Route path="analisis" element={<AnalisisPage/>}/>
                 <Route path="usuarios" element={
                     <RutaConRol roles={['ADMIN']}>
@@ -55,9 +63,6 @@ export default function AppRoutes() {
         </Routes>
     )
 }
-
-import {useState, useEffect} from 'react'
-import api from '../api/axios'
 
 function DashboardHome() {
     const { usuario } = useAuth()
@@ -85,7 +90,6 @@ function DashboardHome() {
 
             const rutasActivas = todasRutas.filter(r => r.activa)
 
-            // Sesiones — solo roles que pueden verlas
             let totalSesiones = 0
             if (rol === 'ADMIN' || rol === 'ENCARGADO') {
                 const resSesiones = await Promise.all(
@@ -94,10 +98,8 @@ function DashboardHome() {
                 totalSesiones = resSesiones.reduce((acc, res) => acc + (res.data.totalElementos || 0), 0)
             }
 
-            // Participantes — todos los roles
             const resParticipantes = await api.get('/participantes?page=0&size=1')
 
-            // Solicitudes pendientes — según rol
             let pendientes = 0
             if (rol === 'ADMIN' || rol === 'PSICOLOGO') {
                 const resAlertas = await api.get('/alertas/ayuda?page=0&size=50')
@@ -157,7 +159,17 @@ function DashboardHome() {
         }
     }
 
-    // Label de solicitudes según rol
+    const handleTogglePost = async (ruta) => {
+        const nuevoEstado = !ruta.postHabilitado
+        if (!confirm(`¿${nuevoEstado ? 'Habilitar' : 'Deshabilitar'} el POST para "${ruta.nombre}"?`)) return
+        try {
+            await api.patch(`/rutas/${ruta.id}/post?habilitado=${nuevoEstado}`)
+            cargarTodo()
+        } catch {
+            alert('Error al actualizar el estado del POST.')
+        }
+    }
+
     const labelSolicitudes = rol === 'ENCARGADO' ? 'Alertas inasistencia' : 'Solicitudes pendientes'
 
     const cards = [
@@ -169,7 +181,6 @@ function DashboardHome() {
     return (
         <div className="flex flex-col gap-6">
 
-            {/* Modal rutas — solo ADMIN */}
             {modalRuta && rol === 'ADMIN' && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
                      onClick={() => setModalRuta(null)}>
@@ -235,7 +246,6 @@ function DashboardHome() {
                                 {rol === 'ADMIN' ? 'Gestiona las rutas activas e inactivas' : 'Rutas disponibles'}
                             </p>
                         </div>
-                        {/* + Nueva solo para ADMIN */}
                         {rol === 'ADMIN' && (
                             <button onClick={abrirNueva}
                                     className="text-xs bg-green-700 text-white px-3 py-1.5 rounded-xl hover:bg-green-800 transition-all font-semibold">
@@ -258,12 +268,19 @@ function DashboardHome() {
                                         <p className="text-sm font-semibold text-gray-800 truncate">{r.nombre}</p>
                                         <p className="text-xs text-gray-400 truncate">{r.descripcion || 'Sin descripción'}</p>
                                     </div>
-                                    {/* Editar/Desactivar solo para ADMIN */}
                                     {rol === 'ADMIN' && (
                                         <div className="flex items-center gap-2 flex-shrink-0">
                                             <button onClick={() => abrirEditar(r)}
                                                     className="text-xs text-blue-500 hover:text-blue-700 font-semibold transition-all">
                                                 Editar
+                                            </button>
+                                            <button onClick={() => handleTogglePost(r)}
+                                                    className={`text-xs font-semibold transition-all px-2 py-0.5 rounded-full ${
+                                                        r.postHabilitado
+                                                            ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                                    }`}>
+                                                {r.postHabilitado ? '📋 POST ON' : '📋 POST OFF'}
                                             </button>
                                             <button onClick={() => handleToggleActiva(r)}
                                                     className={`text-xs font-semibold transition-all
@@ -285,6 +302,7 @@ function DashboardHome() {
                         {[
                             {label: 'Ver participantes', path: '/admin/participantes', icono: '👥'},
                             ...(rol === 'ADMIN' || rol === 'ENCARGADO' ? [{label: 'Gestionar sesiones', path: '/admin/sesiones', icono: '📅'}] : []),
+                            ...(rol === 'ADMIN' || rol === 'PSICOLOGO' ? [{label: 'Fichas de bienestar', path: '/admin/fichas', icono: '📝'}] : []),
                             {label: 'Análisis y alertas', path: '/admin/analisis', icono: '📊'},
                         ].map((item, i) => (
                             <Link key={i} to={item.path}
