@@ -33,7 +33,9 @@ export default function InscripcionesPage() {
     const cargar = async (page = 0) => {
         setCargando(true)
         try {
-            const res = await api.get(`/inscripciones?page=${page}&size=${size}`)
+            let url = `/inscripciones?page=${page}&size=${size}`
+            if (filtroRuta !== 'TODOS') url += `&rutaId=${filtroRuta}`
+            const res = await api.get(url)
             setInscripciones(res.data.contenido)
             setTotal(res.data.totalElementos)
             setPagina(page)
@@ -44,7 +46,7 @@ export default function InscripcionesPage() {
         }
     }
 
-    useEffect(() => { cargar() }, [])
+    useEffect(() => { cargar(0) }, [filtroRuta])
 
     const handleConfirmarCancelar = async () => {
         if (!motivoSeleccionado) return
@@ -77,7 +79,7 @@ export default function InscripcionesPage() {
     }
 
     const handleCerrarSemestre = async () => {
-        if (!confirm(`¿Cerrar el semestre? Esta acción finalizará todas las inscripciones activas y no se puede deshacer.`)) return
+        if (!confirm('¿Cerrar el semestre? Esta acción finalizará todas las inscripciones activas y no se puede deshacer.')) return
         setCerrando(true)
         try {
             const res = await api.post('/inscripciones/cerrar-semestre')
@@ -90,11 +92,9 @@ export default function InscripcionesPage() {
         }
     }
 
-    const inscripcionesFiltradas = inscripciones.filter(i => {
-        const estadoOk = filtroEstado === 'TODOS' || i.estado === filtroEstado
-        const rutaOk = filtroRuta === 'TODOS' || i.nombreRuta === filtroRuta
-        return estadoOk && rutaOk
-    })
+    const inscripcionesFiltradas = filtroEstado === 'TODOS'
+        ? inscripciones
+        : inscripciones.filter(i => i.estado === filtroEstado)
 
     const totalPaginas = Math.ceil(total / size)
 
@@ -153,7 +153,9 @@ export default function InscripcionesPage() {
                     <label className="text-xs font-semibold text-gray-500">Estado</label>
                     <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}
                             className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white outline-none focus:border-green-500">
-                        {ESTADOS.map(e => <option key={e} value={e}>{e === 'TODOS' ? 'Todos los estados' : e}</option>)}
+                        {ESTADOS.map(e => (
+                            <option key={e} value={e}>{e === 'TODOS' ? 'Todos los estados' : e}</option>
+                        ))}
                     </select>
                 </div>
                 <div className="flex flex-col gap-1">
@@ -161,8 +163,8 @@ export default function InscripcionesPage() {
                     <select value={filtroRuta} onChange={e => setFiltroRuta(e.target.value)}
                             className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white outline-none focus:border-green-500">
                         <option value="TODOS">Todas las rutas</option>
-                        <option value="Energía sin Límite">Energía sin Límite</option>
-                        <option value="Alma Latina">Alma Latina</option>
+                        <option value="1">Energía sin Límite</option>
+                        <option value="2">Alma Latina</option>
                     </select>
                 </div>
             </div>
@@ -191,30 +193,30 @@ export default function InscripcionesPage() {
                                 <td className="px-4 py-3">
                                     <div className="flex items-center gap-3">
                                         <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-xs font-semibold text-green-700">
-                                            {i.nombreParticipante.split(' ').map(n => n[0]).slice(0, 2).join('')}
+                                            {i.nombreParticipante?.split(' ').map(n => n[0]).slice(0, 2).join('')}
                                         </div>
                                         <span className="text-sm font-semibold text-gray-800">{i.nombreParticipante}</span>
                                     </div>
                                 </td>
                                 <td className="px-4 py-3 text-sm text-gray-600">{i.numeroIdentificacion}</td>
                                 <td className="px-4 py-3">
-                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold
-                                        ${i.nombreRuta === 'Energía sin Límite' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'}`}>
-                                        {i.nombreRuta}
-                                    </span>
+                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold
+                                            ${i.nombreRuta === 'Energía sin Límite' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'}`}>
+                                            {i.nombreRuta}
+                                        </span>
                                 </td>
                                 <td className="px-4 py-3 text-sm text-gray-600">
                                     {new Date(i.fechaInscripcion).toLocaleDateString('es-CO')}
                                 </td>
                                 <td className="px-4 py-3">
-                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${colorEstado[i.estado]}`}>
-                                        {i.estado}
-                                    </span>
+                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${colorEstado[i.estado]}`}>
+                                            {i.estado}
+                                        </span>
                                 </td>
                                 <td className="px-4 py-3 text-sm text-gray-500">
                                     {i.motivo || '—'}
                                 </td>
-                                <td className="px-4 py-3 flex items-center gap-3">
+                                <td className="px-4 py-3">
                                     {i.estado === 'ACTIVA' && (
                                         <button onClick={() => setModalCancelar(i)}
                                                 className="text-xs text-red-500 hover:text-red-700 font-semibold transition-all">
