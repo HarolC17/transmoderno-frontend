@@ -3,12 +3,14 @@ import AlertasSolicitudesTab from './analisis/AlertasSolicitudesTab'
 import AlertasInasistenciaTab from './analisis/AlertasInasistenciaTab'
 import ReportesTab from './analisis/ReportesTab'
 import RetencionTab from './analisis/RetencionTab'
+import ReportesFichasTab from './analisis/ReportesFichasTab'
 
 const TABS = [
     { id: 'solicitudes', label: '🙋 Solicitudes de ayuda' },
     { id: 'inasistencia', label: '📋 Inasistencias' },
     { id: 'reportes', label: '📊 Reportes' },
     { id: 'retencion', label: '📈 Retención' },
+    { id: 'fichas', label: '📝 Fichas PRE/POST' },
 ]
 
 export default function AnalisisPage() {
@@ -35,6 +37,7 @@ export default function AnalisisPage() {
             {tab === 'inasistencia' && <AlertasInasistenciaTab />}
             {tab === 'reportes' && <ReportesTab />}
             {tab === 'retencion' && <RetencionTab />}
+            {tab === 'fichas' && <ReportesFichasTab />}
         </div>
     )
 }

@@ -6,6 +6,14 @@ import {
     PieChart, Pie, Cell, LineChart, Line, Legend
 } from 'recharts'
 
+const TEMAS = [
+    { nombre: 'Verde',   color: '#15803d' },
+    { nombre: 'Azul',    color: '#1d4ed8' },
+    { nombre: 'Naranja', color: '#ea580c' },
+    { nombre: 'Morado',  color: '#7e22ce' },
+    { nombre: 'Rojo',    color: '#b91c1c' },
+]
+
 const COLORES = ['#15803d', '#16a34a', '#22c55e', '#4ade80', '#86efac', '#bbf7d0']
 
 export default function ReportesTab() {
@@ -25,6 +33,7 @@ export default function ReportesTab() {
     const [tipoGrafico, setTipoGrafico] = useState('barras')
     const [cargando, setCargando] = useState(false)
     const [exportandoDetalle, setExportandoDetalle] = useState(false)
+    const [tema, setTema] = useState(0)
 
     useEffect(() => {
         api.get('/rutas').then(res => setRutas(res.data.filter(r => r.activa)))
@@ -53,10 +62,8 @@ export default function ReportesTab() {
             let url = ''
             if (filtros.tipo === 'asistencia') {
                 url = `/reportes/asistencia/${filtros.agrupacion}`
-            } else if (filtros.tipo === 'participantes') {
-                url = `/reportes/participantes/${filtros.agrupacion}`
             } else {
-                url = '/reportes/fichas/comparativa'
+                url = `/reportes/participantes/${filtros.agrupacion}`
             }
             const params = construirParams()
             const res = await api.get(`${url}?${params}`)
@@ -88,7 +95,6 @@ export default function ReportesTab() {
         const hoja = XLSX.utils.json_to_sheet(datosNormalizados.map(d => ({
             'Etiqueta': d.nombre,
             'Total': d.valor,
-            ...(filtros.tipo === 'fichas' ? { 'Promedio PRE': d.pre, 'Promedio POST': d.post } : {})
         })))
         const libro = XLSX.utils.book_new()
         XLSX.utils.book_append_sheet(libro, hoja, 'Reporte')
@@ -97,14 +103,8 @@ export default function ReportesTab() {
 
     const handleExportarCSV = () => {
         if (datos.length === 0) return
-        const encabezado = filtros.tipo === 'fichas'
-            ? 'Etiqueta,Promedio PRE,Promedio POST'
-            : 'Etiqueta,Total'
-        const filas = datosNormalizados.map(d =>
-            filtros.tipo === 'fichas'
-                ? `"${d.nombre}",${d.pre},${d.post}`
-                : `"${d.nombre}",${d.valor}`
-        )
+        const encabezado = 'Etiqueta,Total'
+        const filas = datosNormalizados.map(d => `"${d.nombre}",${d.valor}`)
         const csv = '\uFEFF' + [encabezado, ...filas].join('\n')
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
         const url = URL.createObjectURL(blob)
@@ -121,7 +121,6 @@ export default function ReportesTab() {
             const params = construirParams()
             const res = await api.get(`/reportes/asistencia/detalle?${params}`)
             const datos = res.data
-
             const encabezado = 'Nombre,Identificación,Programa Académico,Semestre,Estamento,Ruta,Sesión,Fecha'
             const filas = datos.map(d =>
                 `"${d.nombreCompleto}","${d.numeroIdentificacion}","${d.programaAcademico}",${d.semestre || ''},"${d.estamento}","${d.ruta}","${d.sesion}","${d.fecha}"`
@@ -144,13 +143,10 @@ export default function ReportesTab() {
     const datosNormalizados = datos.map(d => ({
         nombre: d.etiqueta || d.pregunta || d.fecha || '',
         valor: d.total || 0,
-        pre: d.promedioPre || 0,
-        post: d.promedioPost || 0
     }))
 
     return (
         <div className="flex flex-col gap-4">
-
             <div className="bg-white rounded-2xl border border-gray-100 p-5 flex flex-col gap-4">
                 <div className="flex items-center justify-between">
                     <p className="text-sm font-semibold text-gray-700">Configura tu reporte</p>
@@ -167,22 +163,19 @@ export default function ReportesTab() {
                                 className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-50 outline-none focus:border-green-500">
                             <option value="asistencia">Asistencia</option>
                             <option value="participantes">Participantes</option>
-                            <option value="fichas">Fichas PRE/POST</option>
                         </select>
                     </div>
 
-                    {filtros.tipo !== 'fichas' && (
-                        <div className="flex flex-col gap-1">
-                            <label className="text-xs font-semibold text-gray-500">Agrupar por</label>
-                            <select value={filtros.agrupacion} onChange={e => handleFiltroChange('agrupacion', e.target.value)}
-                                    className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-50 outline-none focus:border-green-500">
-                                <option value="ruta">Ruta</option>
-                                <option value="programa">Programa académico</option>
-                                <option value="semestre">Semestre</option>
-                                {filtros.tipo === 'asistencia' && <option value="tendencia">Tendencia semanal</option>}
-                            </select>
-                        </div>
-                    )}
+                    <div className="flex flex-col gap-1">
+                        <label className="text-xs font-semibold text-gray-500">Agrupar por</label>
+                        <select value={filtros.agrupacion} onChange={e => handleFiltroChange('agrupacion', e.target.value)}
+                                className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-50 outline-none focus:border-green-500">
+                            <option value="ruta">Ruta</option>
+                            <option value="programa">Programa académico</option>
+                            <option value="semestre">Semestre</option>
+                            {filtros.tipo === 'asistencia' && <option value="tendencia">Tendencia semanal</option>}
+                        </select>
+                    </div>
 
                     <div className="flex flex-col gap-1">
                         <label className="text-xs font-semibold text-gray-500">Tipo de gráfico</label>
@@ -193,7 +186,6 @@ export default function ReportesTab() {
                             {filtros.tipo === 'asistencia' && filtros.agrupacion === 'tendencia' && (
                                 <option value="linea">Línea</option>
                             )}
-                            {filtros.tipo === 'fichas' && <option value="comparativa">Comparativa</option>}
                         </select>
                     </div>
                 </div>
@@ -289,15 +281,32 @@ export default function ReportesTab() {
                 <div className="bg-white rounded-2xl border border-gray-100 p-5 flex flex-col gap-4">
                     <div className="flex items-center justify-between">
                         <p className="text-sm font-semibold text-gray-700">Resultado</p>
-                        <div className="flex gap-2">
-                            <button onClick={handleExportarExcel}
-                                    className="flex items-center gap-1.5 border border-green-700 text-green-700 px-3 py-1.5 rounded-xl text-xs font-semibold hover:bg-green-50 transition-all">
-                                ⬇ Excel
-                            </button>
-                            <button onClick={handleExportarCSV}
-                                    className="flex items-center gap-1.5 border border-blue-600 text-blue-600 px-3 py-1.5 rounded-xl text-xs font-semibold hover:bg-blue-50 transition-all">
-                                ⬇ CSV resumen
-                            </button>
+                        <div className="flex items-center gap-4">
+                            {/* Selector de color */}
+                            {tipoGrafico !== 'torta' && (
+                                <div className="flex items-center gap-2">
+                                    <p className="text-xs text-gray-400">Color:</p>
+                                    {TEMAS.map((t, i) => (
+                                        <button key={i} onClick={() => setTema(i)}
+                                                title={t.nombre}
+                                                className={`w-5 h-5 rounded-full border-2 transition-all ${
+                                                    tema === i ? 'border-gray-400 scale-110' : 'border-transparent'
+                                                }`}
+                                                style={{ backgroundColor: t.color }}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                            <div className="flex gap-2">
+                                <button onClick={handleExportarExcel}
+                                        className="flex items-center gap-1.5 border border-green-700 text-green-700 px-3 py-1.5 rounded-xl text-xs font-semibold hover:bg-green-50 transition-all">
+                                    ⬇ Excel
+                                </button>
+                                <button onClick={handleExportarCSV}
+                                        className="flex items-center gap-1.5 border border-blue-600 text-blue-600 px-3 py-1.5 rounded-xl text-xs font-semibold hover:bg-blue-50 transition-all">
+                                    ⬇ CSV
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -308,7 +317,7 @@ export default function ReportesTab() {
                                 <XAxis dataKey="nombre" tick={{ fontSize: 12 }} angle={-30} textAnchor="end" />
                                 <YAxis tick={{ fontSize: 12 }} />
                                 <Tooltip />
-                                <Bar dataKey="valor" fill="#15803d" radius={[4, 4, 0, 0]} name="Total" />
+                                <Bar dataKey="valor" fill={TEMAS[tema].color} radius={[4, 4, 0, 0]} name="Total" />
                             </BarChart>
                         </ResponsiveContainer>
                     )}
@@ -335,22 +344,8 @@ export default function ReportesTab() {
                                 <XAxis dataKey="nombre" tick={{ fontSize: 12 }} angle={-30} textAnchor="end" />
                                 <YAxis tick={{ fontSize: 12 }} />
                                 <Tooltip />
-                                <Line type="monotone" dataKey="valor" stroke="#15803d" strokeWidth={2} dot={{ r: 4 }} name="Asistencias" />
+                                <Line type="monotone" dataKey="valor" stroke={TEMAS[tema].color} strokeWidth={2} dot={{ r: 4 }} name="Asistencias" />
                             </LineChart>
-                        </ResponsiveContainer>
-                    )}
-
-                    {tipoGrafico === 'comparativa' && (
-                        <ResponsiveContainer width="100%" height={350}>
-                            <BarChart data={datosNormalizados} margin={{ top: 5, right: 20, left: 0, bottom: 100 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                <XAxis dataKey="nombre" tick={{ fontSize: 11 }} angle={-30} textAnchor="end" />
-                                <YAxis domain={[0, 5]} tick={{ fontSize: 12 }} />
-                                <Tooltip />
-                                <Legend />
-                                <Bar dataKey="pre" fill="#22c55e" radius={[4, 4, 0, 0]} name="PRE" />
-                                <Bar dataKey="post" fill="#15803d" radius={[4, 4, 0, 0]} name="POST" />
-                            </BarChart>
                         </ResponsiveContainer>
                     )}
                 </div>

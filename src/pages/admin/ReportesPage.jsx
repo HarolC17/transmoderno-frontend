@@ -181,7 +181,6 @@ export default function ReportesPage() {
                                 className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-50 outline-none focus:border-green-500">
                             <option value="asistencia">Asistencia</option>
                             <option value="participantes">Participantes</option>
-                            <option value="fichas">Fichas PRE/POST</option>
                         </select>
                     </div>
 
@@ -207,7 +206,6 @@ export default function ReportesPage() {
                             {filtros.tipo === 'asistencia' && filtros.agrupacion === 'tendencia' && (
                                 <option value="linea">Línea</option>
                             )}
-                            {filtros.tipo === 'fichas' && <option value="comparativa">Comparativa</option>}
                         </select>
                     </div>
                 </div>

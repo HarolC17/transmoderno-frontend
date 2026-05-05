@@ -186,6 +186,11 @@ export default function EstudiantePage() {
                 <div className="bg-green-800 px-6 py-8 text-center">
                     <h1 className="text-2xl font-semibold text-white">Gimnasio Transmoderno</h1>
                     <p className="text-green-300 text-sm mt-1">UCundinamarca · Fusagasugá</p>
+                    {/* Botón admin */}
+                    <a href="/admin/login"
+                       className="absolute top-3 right-3 flex items-center gap-1.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-semibold px-3 py-1.5 rounded-full transition-all">
+                        <span>🔐</span> Admin
+                    </a>
                 </div>
                 <div className="p-4 flex flex-col gap-4">
                     {sesionIdQR && (<div
