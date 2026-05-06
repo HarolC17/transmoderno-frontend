@@ -24,7 +24,6 @@ export default function LoginPage() {
             navigate('/admin')
         } catch {
             setError('Correo o contraseña incorrectos')
-        } finally {
             setCargando(false)
         }
     }

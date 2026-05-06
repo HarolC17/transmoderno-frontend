@@ -20,7 +20,8 @@ api.interceptors.response.use(
     (error) => {
         if (error.response?.status === 401) {
             const esRutaAdmin = window.location.pathname.startsWith('/admin')
-            if (esRutaAdmin) {
+            const tieneToken = localStorage.getItem('token')
+            if (esRutaAdmin && tieneToken) {
                 localStorage.removeItem('token')
                 localStorage.removeItem('usuario')
                 window.location.href = '/admin/login'
