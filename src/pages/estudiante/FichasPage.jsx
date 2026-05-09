@@ -25,6 +25,35 @@ const contenedorEstilo = {
     overflow: 'hidden',
 }
 
+// Preguntas que se auto-rellenan desde el participante — no se muestran en el formulario
+const ORDENES_AUTO = [1, 2, 3]
+
+// Mapeo de datos del participante a las preguntas automáticas
+// orden 1 = Unidad Regional, orden 2 = Estamento, orden 3 = Número de identificación
+function buildRespuestasAuto(preguntas, participante) {
+    const auto = {}
+    preguntas.forEach(p => {
+        if (p.orden === 1) {
+            // Unidad Regional — tomamos la sede del participante
+            // Normalizamos: "UNIDAD REGIONAL, SEDE FUSAGASUGÁ" → "Fusagasugá"
+            const sedeRaw = participante.sede || ''
+            const match = sedeRaw.match(/SEDE\s+(\w+)/i)
+            const sede = match ? match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase() : sedeRaw
+            auto[p.id] = sede
+        }
+        if (p.orden === 2) {
+            // Estamento
+            const estamentoRaw = participante.estamento || ''
+            auto[p.id] = estamentoRaw.charAt(0).toUpperCase() + estamentoRaw.slice(1).toLowerCase()
+        }
+        if (p.orden === 3) {
+            // Número de identificación
+            auto[p.id] = participante.numeroIdentificacion || ''
+        }
+    })
+    return auto
+}
+
 export default function FichasPage({ participante, onVolver }) {
     const [vista, setVista] = useState('cargando')
     const [inscripciones, setInscripciones] = useState([])
@@ -33,19 +62,17 @@ export default function FichasPage({ participante, onVolver }) {
     const [inscripcionSeleccionada, setInscripcionSeleccionada] = useState(null)
     const [tipFicha, setTipFicha] = useState(null)
     const [preguntas, setPreguntas] = useState([])
+    const [preguntasVisibles, setPreguntasVisibles] = useState([]) // sin las auto
     const [respuestas, setRespuestas] = useState({})
     const [fichaPreId, setFichaPreId] = useState(null)
     const [guardando, setGuardando] = useState(false)
     const [error, setError] = useState('')
     const [preguntaActual, setPreguntaActual] = useState(0)
 
-    useEffect(() => {
-        cargarInscripciones()
-    }, [])
+    useEffect(() => { cargarInscripciones() }, [])
 
     const cargarInscripciones = async () => {
         try {
-            // Cargar rutas para verificar postHabilitado
             const resRutas = await api.get('/rutas')
             const mapa = {}
             resRutas.data.forEach(r => { mapa[r.id] = r })
@@ -83,7 +110,6 @@ export default function FichasPage({ participante, onVolver }) {
         setInscripcionSeleccionada(inscripcion)
         setTipFicha(tipo)
         setPreguntaActual(0)
-        setRespuestas({})
 
         if (tipo === 'POST') {
             setFichaPreId(estadoFichas[inscripcion.id]?.pre?.id)
@@ -91,7 +117,15 @@ export default function FichasPage({ participante, onVolver }) {
 
         try {
             const res = await obtenerPreguntasPorRutaYFicha(inscripcion.rutaId, tipo)
-            setPreguntas(res.data)
+            const todasPreguntas = res.data.sort((a, b) => a.orden - b.orden)
+
+            // Separar preguntas automáticas de las visibles
+            const visibles = todasPreguntas.filter(p => !ORDENES_AUTO.includes(p.orden))
+            const autoRespuestas = buildRespuestasAuto(todasPreguntas, participante)
+
+            setPreguntas(todasPreguntas)
+            setPreguntasVisibles(visibles)
+            setRespuestas(autoRespuestas) // pre-cargar respuestas automáticas
             setVista('formulario')
         } catch {
             setError('No se pudieron cargar las preguntas. Intenta de nuevo.')
@@ -103,13 +137,14 @@ export default function FichasPage({ participante, onVolver }) {
     }
 
     const siguiente = () => {
-        const pregunta = preguntas[preguntaActual]
-        if (!respuestas[pregunta.id] && respuestas[pregunta.id] !== '0') {
+        const pregunta = preguntasVisibles[preguntaActual]
+        const val = respuestas[pregunta.id]
+        if (val === undefined || val === null || val === '') {
             setError('Por favor responde esta pregunta antes de continuar.')
             return
         }
         setError('')
-        if (preguntaActual < preguntas.length - 1) {
+        if (preguntaActual < preguntasVisibles.length - 1) {
             setPreguntaActual(prev => prev + 1)
         } else {
             enviarFicha()
@@ -125,6 +160,7 @@ export default function FichasPage({ participante, onVolver }) {
         setGuardando(true)
         setError('')
         try {
+            // Construir array de respuestas — incluye automáticas + manuales
             const respuestasArray = Object.entries(respuestas).map(([preguntaId, valor]) => ({
                 preguntaId: Number(preguntaId),
                 valor: String(valor),
@@ -187,9 +223,9 @@ export default function FichasPage({ participante, onVolver }) {
 
     // ── FORMULARIO ────────────────────────────────────────────
     if (vista === 'formulario') {
-        const pregunta = preguntas[preguntaActual]
-        const progreso = Math.round(((preguntaActual + 1) / preguntas.length) * 100)
-        const esUltima = preguntaActual === preguntas.length - 1
+        const pregunta = preguntasVisibles[preguntaActual]
+        const progreso = Math.round(((preguntaActual + 1) / preguntasVisibles.length) * 100)
+        const esUltima = preguntaActual === preguntasVisibles.length - 1
         const opciones = pregunta.opciones ? JSON.parse(pregunta.opciones) : []
 
         return (
@@ -202,11 +238,22 @@ export default function FichasPage({ participante, onVolver }) {
                                 <h2 className="text-white font-semibold text-base">Ficha {tipFicha}</h2>
                                 <p className="text-green-300 text-xs">{inscripcionSeleccionada?.nombreRuta || 'Bienestar'}</p>
                             </div>
-                            <span className="ml-auto text-green-200 text-xs">{preguntaActual + 1} / {preguntas.length}</span>
+                            <span className="ml-auto text-green-200 text-xs">{preguntaActual + 1} / {preguntasVisibles.length}</span>
                         </div>
                         <div className="w-full bg-green-900 rounded-full h-1.5">
                             <div className="bg-green-300 h-1.5 rounded-full transition-all duration-300"
                                  style={{ width: `${progreso}%` }} />
+                        </div>
+                    </div>
+
+                    {/* Info auto-llenada del participante */}
+                    <div className="bg-green-50 border-b border-green-100 px-5 py-3 flex items-center gap-3">
+                        <div className="w-8 h-8 bg-green-200 rounded-full flex items-center justify-center text-sm flex-shrink-0">👤</div>
+                        <div>
+                            <p className="text-xs font-semibold text-green-800">{participante.nombreCompleto}</p>
+                            <p className="text-xs text-green-600">
+                                {participante.numeroIdentificacion} · {participante.sede?.replace('UNIDAD REGIONAL, SEDE ', '') || ''}
+                            </p>
                         </div>
                     </div>
 
@@ -220,6 +267,7 @@ export default function FichasPage({ participante, onVolver }) {
                         </div>
 
                         <div className="flex flex-col gap-2">
+                            {/* SELECCION */}
                             {pregunta.tipo === 'SELECCION' && opciones.map((op) => (
                                 <button key={op} onClick={() => handleRespuesta(pregunta.id, op)}
                                         className={`w-full text-left px-4 py-3 rounded-xl text-sm border transition-all ${
@@ -231,6 +279,7 @@ export default function FichasPage({ participante, onVolver }) {
                                 </button>
                             ))}
 
+                            {/* ESCALA_1_5 y ESCALA_0_4 */}
                             {(pregunta.tipo === 'ESCALA_1_5' || pregunta.tipo === 'ESCALA_0_4') && opciones.map((op) => {
                                 const val = op.split(' - ')[0]
                                 return (
@@ -245,6 +294,25 @@ export default function FichasPage({ participante, onVolver }) {
                                 )
                             })}
 
+                            {/* SI_NO */}
+                            {pregunta.tipo === 'SI_NO' && (
+                                <div className="flex gap-3">
+                                    {opciones.map((op) => (
+                                        <button key={op} onClick={() => handleRespuesta(pregunta.id, op)}
+                                                className={`flex-1 py-4 rounded-xl text-sm font-semibold border transition-all ${
+                                                    respuestas[pregunta.id] === op
+                                                        ? op === 'Sí'
+                                                            ? 'bg-green-700 text-white border-green-700'
+                                                            : 'bg-gray-700 text-white border-gray-700'
+                                                        : 'bg-white border-gray-200 text-gray-700 hover:border-green-400'
+                                                }`}>
+                                            {op === 'Sí' ? '✓ Sí' : '✗ No'}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* NUMERO */}
                             {pregunta.tipo === 'NUMERO' && (
                                 <input type="number" step="0.01"
                                        value={respuestas[pregunta.id] || ''}
@@ -253,6 +321,7 @@ export default function FichasPage({ participante, onVolver }) {
                                        className="border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-green-500 w-full"/>
                             )}
 
+                            {/* TEXTO */}
                             {pregunta.tipo === 'TEXTO' && (
                                 <input type="text"
                                        value={respuestas[pregunta.id] || ''}
@@ -308,7 +377,6 @@ export default function FichasPage({ participante, onVolver }) {
                                     </div>
 
                                     <div className="flex gap-2">
-                                        {/* Ficha PRE */}
                                         {tienePre ? (
                                             <div className="flex-1 bg-green-50 border border-green-200 rounded-xl p-3 text-center">
                                                 <p className="text-xs font-semibold text-green-700">✓ PRE completada</p>
@@ -320,7 +388,6 @@ export default function FichasPage({ participante, onVolver }) {
                                             </button>
                                         )}
 
-                                        {/* Ficha POST */}
                                         {tienePost ? (
                                             <div className="flex-1 bg-green-50 border border-green-200 rounded-xl p-3 text-center">
                                                 <p className="text-xs font-semibold text-green-700">✓ POST completada</p>

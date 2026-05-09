@@ -2,107 +2,84 @@ import { useState, useEffect } from 'react'
 import api from '../../../api/axios'
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-    ResponsiveContainer, Legend, RadarChart, Radar,
-    PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+    ResponsiveContainer, RadarChart, Radar, PolarGrid,
+    PolarAngleAxis, PolarRadiusAxis, Legend,
 } from 'recharts'
-
-// ── Secciones por orden de pregunta PRE ──────────────────────
-// orden 6      → frecuencia (SELECCION) → excluida de gráfica escala
-// orden 7-11   → condición física       → escala 1-5, alto=bueno
-// orden 12-16  → síntomas de estrés     → escala 1-5, alto=malo
-// orden 17-20  → bienestar emocional    → escala 1-5 (19=calma: alto=bueno)
-// orden 21-24  → satisfacción/selección → excluidas de comparativa directa
-// orden 25     → motivación             → excluida
 
 const SECCIONES = [
     {
         id: 'fisica',
         label: '💪 Condición física',
         ordenes: [7, 8, 9, 10, 11],
-        invertida: false, // alto = bueno → POST debe ser mayor
-        yLabel: 'Nivel (1=Muy baja · 5=Muy buena)',
+        color: '#15803d',
+        colorClaro: '#bbf7d0',
+        descripcion: 'Estado inicial de la condición física (1=Muy baja · 5=Muy buena)',
+        inversion: false,
     },
     {
         id: 'sintomas',
         label: '😰 Síntomas de estrés',
         ordenes: [12, 13, 14, 15, 16],
-        invertida: true, // alto = malo → POST debe ser menor
-        yLabel: 'Frecuencia (1=Nunca · 5=Siempre)',
+        color: '#b91c1c',
+        colorClaro: '#fecaca',
+        descripcion: 'Frecuencia de síntomas físicos al inicio del semestre (1=Nunca · 5=Siempre)',
+        inversion: true,
     },
     {
         id: 'emocional',
         label: '🧠 Experiencias emocionales',
         ordenes: [17, 18, 19, 20],
-        invertida: false, // interpretación mixta — se muestra sin invertir
-        yLabel: 'Frecuencia (1=Nunca · 5=Siempre)',
+        color: '#7e22ce',
+        colorClaro: '#e9d5ff',
+        descripcion: 'Frecuencia de experiencias emocionales al inicio (0=Nunca · 4=Siempre)',
+        inversion: true,
     },
-]
-
-const TEMAS = [
-    { nombre: 'Verde',   pre: '#86efac', post: '#15803d' },
-    { nombre: 'Azul',    pre: '#93c5fd', post: '#1d4ed8' },
-    { nombre: 'Naranja', pre: '#fed7aa', post: '#ea580c' },
-    { nombre: 'Morado',  pre: '#d8b4fe', post: '#7e22ce' },
-    { nombre: 'Rojo',    pre: '#fca5a5', post: '#b91c1c' },
 ]
 
 function limpiarTexto(texto) {
     return texto
+        .replace(/^Condición física — /i, '')
+        .replace(/^Síntomas de estrés — /i, '')
+        .replace(/^Experiencias emocionales — /i, '')
         .replace(/\s*\(Escala.*?\)/gi, '')
-        .replace(/\s*Escala.*$/gi, '')
+        .replace(/\s*\(invertido\)/gi, '')
         .trim()
 }
 
-function deltaColor(pre, post, invertida) {
-    const mejoro = invertida ? post < pre : post > pre
-    const igual  = Math.abs(post - pre) < 0.1
-    if (igual)   return 'text-gray-400'
-    if (mejoro)  return 'text-green-600'
-    return 'text-red-500'
-}
-
-function deltaLabel(pre, post, invertida) {
-    const diff = post - pre
-    if (Math.abs(diff) < 0.1) return '→ Sin cambio'
-    const mejoro = invertida ? diff < 0 : diff > 0
-    const flecha = diff > 0 ? '↑' : '↓'
-    const signo  = diff > 0 ? '+' : ''
-    return `${flecha} ${signo}${diff.toFixed(2)}`
-}
-
-// ── Tooltip personalizado ────────────────────────────────────
-const CustomTooltip = ({ active, payload, label, comparativa }) => {
+const CustomTooltip = ({ active, payload, label, seccion }) => {
     if (!active || !payload?.length) return null
-    const item = comparativa.find(c => c.nombre === label)
-    const pre  = payload.find(p => p.dataKey === 'pre')?.value  ?? 0
-    const post = payload.find(p => p.dataKey === 'post')?.value ?? 0
+    const val = payload[0]?.value ?? 0
+    const max = seccion?.id === 'emocional' ? 4 : 5
+    const nivel = seccion?.inversion
+        ? val >= 3.5 ? '⚠️ Nivel alto — requiere atención'
+            : val >= 2.5 ? '⚡ Nivel moderado'
+                : '✓ Nivel bajo'
+        : val >= 4 ? '✓ Buen nivel inicial'
+            : val >= 3 ? '⚡ Nivel moderado'
+                : '⚠️ Nivel bajo — área de mejora'
     return (
         <div className="bg-white border border-gray-200 rounded-xl p-3 shadow-lg text-xs max-w-xs">
-            <p className="font-semibold text-gray-700 mb-1.5">{item?.nombreCompleto || label}</p>
-            <div className="flex flex-col gap-1">
-                <span className="text-blue-600">PRE:  <strong>{pre.toFixed(2)}</strong></span>
-                <span className="text-green-700">POST: <strong>{post.toFixed(2)}</strong></span>
-            </div>
+            <p className="font-semibold text-gray-700 mb-1">{label}</p>
+            <p style={{ color: seccion?.color }}>Promedio PRE: <strong>{val.toFixed(2)}</strong> / {max}</p>
+            <p className="text-gray-400 mt-1">{nivel}</p>
         </div>
     )
 }
 
 export default function ReportesFichasTab() {
-    const [rutas,       setRutas]       = useState([])
-    const [rutaId,      setRutaId]      = useState('')
-    const [vista,       setVista]       = useState('grupo')
-    const [cargando,    setCargando]    = useState(false)
-    const [error,       setError]       = useState('')
-    const [comparativa, setComparativa] = useState([])   // datos del endpoint
-    const [seccion,     setSeccion]     = useState('fisica')
-    const [tema,        setTema]        = useState(0)
-    const [totalFichas, setTotalFichas] = useState(0)
+    const [rutas,        setRutas]        = useState([])
+    const [rutaId,       setRutaId]       = useState('')
+    const [cargando,     setCargando]     = useState(false)
+    const [error,        setError]        = useState('')
+    const [datos,        setDatos]        = useState([])
+    const [seccion,      setSeccion]      = useState('fisica')
+    const [vistaGrafica, setVistaGrafica] = useState('barras')
+    const [vista,        setVista]        = useState('grupo')
 
-    // Vista individual
-    const [busqueda,        setBusqueda]        = useState('')
+    const [busqueda,         setBusqueda]         = useState('')
     const [participanteData, setParticipanteData] = useState(null)
-    const [buscando,        setBuscando]        = useState(false)
-    const [errorBusqueda,   setErrorBusqueda]   = useState('')
+    const [buscando,         setBuscando]         = useState(false)
+    const [errorBusqueda,    setErrorBusqueda]    = useState('')
 
     useEffect(() => {
         api.get('/rutas').then(r => {
@@ -112,50 +89,31 @@ export default function ReportesFichasTab() {
         })
     }, [])
 
-    // ── Carga usando el endpoint comparativa ─────────────────
-    const cargarComparativa = async () => {
+    const cargar = async () => {
         if (!rutaId) return
         setCargando(true)
         setError('')
-        setComparativa([])
-        setTotalFichas(0)
+        setDatos([])
         try {
             const res = await api.get(`/reportes/fichas/comparativa?rutaId=${rutaId}`)
-            setComparativa(res.data)          // [{ orden, pregunta, promedioPre, promedioPost }]
-
-            // Total de fichas con PRE+POST para mostrar en el resumen
-            const resIns = await api.get(`/inscripciones?page=0&size=1&rutaId=${rutaId}`)
-            setTotalFichas(res.data.length > 0 ? res.data[0].n ?? 0 : 0)
+            setDatos(res.data)
         } catch {
-            setError('No se pudieron cargar los datos. Verifica que existan fichas completadas.')
+            setError('No se pudieron cargar los datos. Verifica que existan fichas PRE completadas.')
         } finally {
             setCargando(false)
         }
     }
 
-    // ── Datos de la sección activa ────────────────────────────
-    const datosSeccion = () => {
-        const sec = SECCIONES.find(s => s.id === seccion)
-        if (!sec || comparativa.length === 0) return []
+    const seccionActual  = SECCIONES.find(s => s.id === seccion)
+    const maxEscala      = seccion === 'emocional' ? 4 : 5
+    const datosSeccion   = datos
+        .filter(d => seccionActual?.ordenes.includes(d.orden))
+        .map(d => ({ nombre: limpiarTexto(d.pregunta), valor: d.promedioPre ?? 0 }))
 
-        return comparativa
-            .filter(d => sec.ordenes.includes(d.orden))
-            .map(d => {
-                const nombre = limpiarTexto(d.pregunta)
-                return {
-                    nombre:        nombre.length > 18 ? nombre.substring(0, 18) + '…' : nombre,
-                    nombreCompleto: nombre,
-                    pre:           d.promedioPre  ?? 0,
-                    post:          d.promedioPost ?? 0,
-                }
-            })
-    }
+    const promedioSeccion = datosSeccion.length > 0
+        ? (datosSeccion.reduce((s, d) => s + d.valor, 0) / datosSeccion.length).toFixed(2)
+        : '—'
 
-    const seccionActual = SECCIONES.find(s => s.id === seccion)
-    const datos         = datosSeccion()
-    const hayDatos      = comparativa.length > 0
-
-    // ── Buscar participante individual ────────────────────────
     const buscarParticipante = async () => {
         if (!busqueda.trim()) return
         setBuscando(true)
@@ -165,7 +123,6 @@ export default function ReportesFichasTab() {
             const resP   = await api.get(`/participantes/identificacion/${busqueda.trim()}`)
             const resIns = await api.get(`/inscripciones/participante/${busqueda.trim()}`)
             const inscripciones = resIns.data.filter(i => i.estado === 'ACTIVA')
-
             const fichasP = []
             for (const ins of inscripciones) {
                 try {
@@ -177,17 +134,13 @@ export default function ReportesFichasTab() {
                     try {
                         const r = await api.get(`/fichas/pre/inscripcion/${ins.id}`)
                         fp = r.data
-                        try {
-                            const r2 = await api.get(`/fichas/post/inscripcion/${fp.id}`)
-                            fpost = r2.data
-                        } catch {}
+                        try { fpost = (await api.get(`/fichas/post/inscripcion/${fp.id}`)).data } catch {}
                     } catch {}
                     fichasP.push({
                         ins,
                         preguntasPre:  resPre.data.sort((a, b) => a.orden - b.orden),
                         preguntasPost: resPostQ.data.sort((a, b) => a.orden - b.orden),
-                        pre:  fp,
-                        post: fpost,
+                        pre: fp, post: fpost,
                     })
                 } catch {}
             }
@@ -205,7 +158,7 @@ export default function ReportesFichasTab() {
             {/* Selector vista */}
             <div className="flex gap-2">
                 {[
-                    { id: 'grupo',      label: '📊 Comparativa grupal' },
+                    { id: 'grupo',      label: '📊 Diagnóstico grupal' },
                     { id: 'individual', label: '👤 Vista individual'   },
                 ].map(v => (
                     <button key={v.id} onClick={() => setVista(v.id)}
@@ -219,10 +172,9 @@ export default function ReportesFichasTab() {
                 ))}
             </div>
 
-            {/* ══════════ VISTA GRUPAL ══════════ */}
+            {/* ══ VISTA GRUPAL ══ */}
             {vista === 'grupo' && (
                 <div className="flex flex-col gap-4">
-
                     {/* Filtros */}
                     <div className="bg-white rounded-2xl border border-gray-100 p-5 flex items-end gap-4">
                         <div className="flex flex-col gap-1 flex-1">
@@ -232,7 +184,7 @@ export default function ReportesFichasTab() {
                                 {rutas.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
                             </select>
                         </div>
-                        <button onClick={cargarComparativa} disabled={cargando}
+                        <button onClick={cargar} disabled={cargando}
                                 className="bg-green-700 text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-green-800 transition-all disabled:opacity-50">
                             {cargando ? 'Cargando…' : 'Generar'}
                         </button>
@@ -240,110 +192,163 @@ export default function ReportesFichasTab() {
 
                     {cargando && (
                         <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center text-sm text-gray-400">
-                            Consultando comparativa PRE/POST…
+                            Consultando diagnóstico inicial…
                         </div>
                     )}
-
                     {error && (
-                        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700 text-center">
-                            {error}
-                        </div>
+                        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700 text-center">{error}</div>
                     )}
 
-                    {!cargando && hayDatos && (
+                    {!cargando && datos.length > 0 && (
                         <>
-                            {/* Tabs sección */}
-                            <div className="bg-white rounded-2xl border border-gray-100 p-5 flex flex-col gap-4">
-                                <div className="flex gap-2 flex-wrap border-b border-gray-100 pb-3">
-                                    {SECCIONES.map(s => (
-                                        <button key={s.id} onClick={() => setSeccion(s.id)}
-                                                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                                                    seccion === s.id
-                                                        ? 'bg-green-700 text-white'
-                                                        : 'border border-gray-200 text-gray-500 hover:bg-gray-50'
-                                                }`}>
-                                            {s.label}
-                                        </button>
-                                    ))}
-                                </div>
+                            {/* Cards resumen */}
+                            <div className="grid grid-cols-3 gap-3">
+                                {SECCIONES.map(s => {
+                                    const ds  = datos.filter(d => s.ordenes.includes(d.orden))
+                                    const max = s.id === 'emocional' ? 4 : 5
+                                    const prom = ds.length > 0
+                                        ? (ds.reduce((a, d) => a + (d.promedioPre ?? 0), 0) / ds.length).toFixed(1)
+                                        : '—'
+                                    return (
+                                        <div key={s.id} onClick={() => setSeccion(s.id)}
+                                             className={`rounded-2xl p-4 cursor-pointer transition-all border-2 ${
+                                                 seccion === s.id ? 'border-gray-400 shadow-sm' : 'border-transparent'
+                                             }`}
+                                             style={{ backgroundColor: s.colorClaro + '80' }}>
+                                            <p className="text-xs font-semibold text-gray-500 mb-1">{s.label}</p>
+                                            <p className="text-2xl font-bold" style={{ color: s.color }}>
+                                                {prom}<span className="text-sm font-normal text-gray-400"> /{max}</span>
+                                            </p>
+                                            <p className="text-xs text-gray-400 mt-1">Promedio inicial</p>
+                                        </div>
+                                    )
+                                })}
+                            </div>
 
-                                {/* Info + selector color */}
-                                <div className="flex items-center justify-between flex-wrap gap-2">
-                                    <p className="text-xs text-gray-400">
-                                        Basado en <strong>{comparativa[0]?.n ?? '—'}</strong> participantes con PRE y POST completados.
-                                        Escala 1–5. {seccionActual?.invertida
-                                        ? '⬇ En esta sección un valor menor en POST indica mejora.'
-                                        : '⬆ En esta sección un valor mayor en POST indica mejora.'}
-                                    </p>
-                                    <div className="flex items-center gap-2">
-                                        <p className="text-xs text-gray-400">Color:</p>
-                                        {TEMAS.map((t, i) => (
-                                            <button key={i} onClick={() => setTema(i)} title={t.nombre}
-                                                    className={`w-6 h-6 rounded-full border-2 transition-all ${
-                                                        tema === i ? 'border-gray-400 scale-110' : 'border-transparent'
+                            {/* Panel gráfica */}
+                            <div className="bg-white rounded-2xl border border-gray-100 p-5 flex flex-col gap-4">
+                                {/* Tabs + toggle */}
+                                <div className="flex items-center justify-between flex-wrap gap-2 border-b border-gray-100 pb-3">
+                                    <div className="flex gap-2 flex-wrap">
+                                        {SECCIONES.map(s => (
+                                            <button key={s.id} onClick={() => setSeccion(s.id)}
+                                                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                                                        seccion === s.id ? 'text-white' : 'border border-gray-200 text-gray-500 hover:bg-gray-50'
                                                     }`}
-                                                    style={{ background: `linear-gradient(135deg, ${t.pre} 50%, ${t.post} 50%)` }}
-                                            />
+                                                    style={seccion === s.id ? { backgroundColor: seccionActual?.color } : {}}>
+                                                {s.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <div className="flex gap-1">
+                                        {[{ id: 'barras', icon: '▊' }, { id: 'radar', icon: '⬡' }].map(v => (
+                                            <button key={v.id} onClick={() => setVistaGrafica(v.id)}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                                                        vistaGrafica === v.id
+                                                            ? 'bg-gray-800 text-white'
+                                                            : 'border border-gray-200 text-gray-400 hover:bg-gray-50'
+                                                    }`}>
+                                                {v.icon}
+                                            </button>
                                         ))}
                                     </div>
                                 </div>
 
-                                {/* Gráfica de barras */}
-                                {datos.length > 0 ? (
-                                    <ResponsiveContainer width="100%" height={380}>
-                                        <BarChart data={datos} margin={{ top: 10, right: 20, left: 0, bottom: 90 }}>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                            <XAxis dataKey="nombre" tick={{ fontSize: 11 }} angle={-30} textAnchor="end" interval={0} />
-                                            <YAxis domain={[0, 5]} tick={{ fontSize: 12 }} label={{ value: seccionActual?.yLabel, angle: -90, position: 'insideLeft', fontSize: 10, fill: '#9ca3af' }} />
-                                            <Tooltip content={<CustomTooltip comparativa={datos} />} />
-                                            <Legend verticalAlign="top" wrapperStyle={{ paddingBottom: 10 }}
-                                                    formatter={v => v === 'pre' ? 'PRE (inicio semestre)' : 'POST (fin semestre)'} />
-                                            <Bar dataKey="pre"  fill={TEMAS[tema].pre}  radius={[4, 4, 0, 0]} name="pre"  />
-                                            <Bar dataKey="post" fill={TEMAS[tema].post} radius={[4, 4, 0, 0]} name="post" />
-                                        </BarChart>
-                                    </ResponsiveContainer>
+                                <p className="text-xs text-gray-400">{seccionActual?.descripcion}</p>
+
+                                {datosSeccion.length > 0 ? (
+                                    vistaGrafica === 'barras' ? (
+                                        <ResponsiveContainer width="100%" height={320}>
+                                            <BarChart data={datosSeccion} margin={{ top: 20, right: 20, left: 0, bottom: 60 }}>
+                                                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                                <XAxis dataKey="nombre" tick={{ fontSize: 11 }} angle={-25} textAnchor="end" interval={0} />
+                                                <YAxis domain={[0, maxEscala]} tick={{ fontSize: 12 }} />
+                                                <Tooltip content={<CustomTooltip seccion={seccionActual} />} />
+                                                <Bar dataKey="valor" fill={seccionActual?.color} radius={[6, 6, 0, 0]} name="Promedio PRE"
+                                                     label={{ position: 'top', fontSize: 11, fill: seccionActual?.color,
+                                                         formatter: v => v.toFixed(1) }} />
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    ) : (
+                                        <ResponsiveContainer width="100%" height={320}>
+                                            <RadarChart data={datosSeccion}>
+                                                <PolarGrid />
+                                                <PolarAngleAxis dataKey="nombre" tick={{ fontSize: 10 }} />
+                                                <PolarRadiusAxis domain={[0, maxEscala]} tick={{ fontSize: 10 }} />
+                                                <Radar name="Promedio PRE" dataKey="valor"
+                                                       stroke={seccionActual?.color}
+                                                       fill={seccionActual?.color} fillOpacity={0.35} />
+                                                <Legend />
+                                            </RadarChart>
+                                        </ResponsiveContainer>
+                                    )
                                 ) : (
                                     <p className="text-sm text-gray-400 text-center py-8">Sin datos para esta sección.</p>
                                 )}
 
-                                {/* Tabla resumen con delta */}
-                                {datos.length > 0 && (
+                                {/* Tabla */}
+                                {datosSeccion.length > 0 && (
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-xs">
                                             <thead>
                                             <tr className="bg-gray-50 border-b border-gray-100">
-                                                <th className="text-left px-3 py-2 font-semibold text-gray-500">Pregunta</th>
-                                                <th className="text-center px-3 py-2 font-semibold text-blue-600">PRE</th>
-                                                <th className="text-center px-3 py-2 font-semibold text-green-700">POST</th>
-                                                <th className="text-center px-3 py-2 font-semibold text-gray-500">Cambio</th>
+                                                <th className="text-left px-3 py-2 font-semibold text-gray-500">Dimensión</th>
+                                                <th className="text-center px-3 py-2 font-semibold text-gray-500">Promedio PRE</th>
+                                                <th className="text-center px-3 py-2 font-semibold text-gray-500">Nivel</th>
+                                                <th className="text-center px-3 py-2 font-semibold text-gray-500">Barra</th>
                                             </tr>
                                             </thead>
                                             <tbody>
-                                            {datos.map((d, i) => (
-                                                <tr key={i} className="border-b border-gray-50 hover:bg-gray-50">
-                                                    <td className="px-3 py-2 text-gray-700">{d.nombreCompleto}</td>
-                                                    <td className="px-3 py-2 text-center">
-                                                        <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-lg font-semibold">{d.pre.toFixed(2)}</span>
-                                                    </td>
-                                                    <td className="px-3 py-2 text-center">
-                                                        <span className="bg-green-50 text-green-700 px-2 py-0.5 rounded-lg font-semibold">{d.post.toFixed(2)}</span>
-                                                    </td>
-                                                    <td className={`px-3 py-2 text-center font-semibold ${deltaColor(d.pre, d.post, seccionActual?.invertida)}`}>
-                                                        {deltaLabel(d.pre, d.post, seccionActual?.invertida)}
-                                                    </td>
-                                                </tr>
-                                            ))}
+                                            {datosSeccion.map((d, i) => {
+                                                const pct   = (d.valor / maxEscala) * 100
+                                                const nivel = seccionActual?.inversion
+                                                    ? d.valor >= 3.5 ? { label: 'Alto ⚠️',    color: 'text-red-600'   }
+                                                        : d.valor >= 2.5 ? { label: 'Moderado',  color: 'text-amber-600' }
+                                                            : { label: 'Bajo ✓',   color: 'text-green-600' }
+                                                    : d.valor >= 4   ? { label: 'Bueno ✓',  color: 'text-green-600' }
+                                                        : d.valor >= 3 ? { label: 'Moderado',  color: 'text-amber-600' }
+                                                            : { label: 'Bajo ⚠️',  color: 'text-red-600'   }
+                                                return (
+                                                    <tr key={i} className="border-b border-gray-50 hover:bg-gray-50">
+                                                        <td className="px-3 py-2 text-gray-700">{d.nombre}</td>
+                                                        <td className="px-3 py-2 text-center">
+                                                            <span className="font-semibold text-gray-800">{d.valor.toFixed(2)}</span>
+                                                            <span className="text-gray-400"> /{maxEscala}</span>
+                                                        </td>
+                                                        <td className={`px-3 py-2 text-center font-semibold ${nivel.color}`}>
+                                                            {nivel.label}
+                                                        </td>
+                                                        <td className="px-3 py-2 w-32">
+                                                            <div className="w-full bg-gray-100 rounded-full h-2">
+                                                                <div className="h-2 rounded-full"
+                                                                     style={{ width: `${pct}%`, backgroundColor: seccionActual?.color }} />
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                )
+                                            })}
+                                            <tr className="bg-gray-50">
+                                                <td className="px-3 py-2 font-semibold text-gray-600">Promedio sección</td>
+                                                <td className="px-3 py-2 text-center font-bold" style={{ color: seccionActual?.color }}>
+                                                    {promedioSeccion} /{maxEscala}
+                                                </td>
+                                                <td colSpan={2} />
+                                            </tr>
                                             </tbody>
                                         </table>
                                     </div>
                                 )}
+
+                                <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-700 text-center">
+                                    📋 Diagnóstico inicial (PRE) — Los resultados POST estarán disponibles al finalizar el semestre
+                                </div>
                             </div>
                         </>
                     )}
                 </div>
             )}
 
-            {/* ══════════ VISTA INDIVIDUAL ══════════ */}
+            {/* ══ VISTA INDIVIDUAL ══ */}
             {vista === 'individual' && (
                 <div className="flex flex-col gap-4">
                     <div className="flex gap-2">
@@ -357,9 +362,7 @@ export default function ReportesFichasTab() {
                         </button>
                         {participanteData && (
                             <button onClick={() => { setParticipanteData(null); setBusqueda(''); setErrorBusqueda('') }}
-                                    className="px-3 py-2.5 border border-gray-200 text-gray-500 rounded-xl text-sm hover:bg-gray-50 transition-all">
-                                ✕
-                            </button>
+                                    className="px-3 py-2.5 border border-gray-200 text-gray-500 rounded-xl text-sm hover:bg-gray-50 transition-all">✕</button>
                         )}
                     </div>
 
@@ -369,7 +372,6 @@ export default function ReportesFichasTab() {
 
                     {participanteData && (
                         <div className="flex flex-col gap-4">
-                            {/* Header participante */}
                             <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3">
                                 <div className="w-10 h-10 bg-green-200 rounded-full flex items-center justify-center text-lg">👤</div>
                                 <div>
@@ -385,12 +387,10 @@ export default function ReportesFichasTab() {
                                     <div className="bg-green-800 px-5 py-3">
                                         <p className="text-white text-sm font-semibold">{f.ins.nombreRuta || `Ruta ${f.ins.rutaId}`}</p>
                                     </div>
-
                                     {!f.pre ? (
                                         <div className="p-5 text-sm text-gray-400 text-center">Sin ficha PRE registrada</div>
                                     ) : (
                                         <div className="p-4 flex flex-col gap-4">
-                                            {/* Estado fichas */}
                                             <div className="grid grid-cols-2 gap-2 text-xs">
                                                 <div className="bg-blue-50 rounded-xl p-3 text-center">
                                                     <p className="font-semibold text-blue-700">📋 PRE completada</p>
@@ -400,13 +400,10 @@ export default function ReportesFichasTab() {
                                                     <p className={`font-semibold ${f.post ? 'text-green-700' : 'text-gray-400'}`}>
                                                         {f.post ? '✓ POST completada' : '— POST pendiente'}
                                                     </p>
-                                                    {f.post && (
-                                                        <p className="text-green-500 mt-0.5">{new Date(f.post.fechaDiligenciamiento).toLocaleDateString('es-CO')}</p>
-                                                    )}
+                                                    {f.post && <p className="text-green-500 mt-0.5">{new Date(f.post.fechaDiligenciamiento).toLocaleDateString('es-CO')}</p>}
                                                 </div>
                                             </div>
 
-                                            {/* Tabla respuestas */}
                                             <table className="w-full text-xs">
                                                 <thead>
                                                 <tr className="bg-gray-50 border-b border-gray-100">
@@ -416,36 +413,30 @@ export default function ReportesFichasTab() {
                                                 </tr>
                                                 </thead>
                                                 <tbody>
-                                                {f.preguntasPre.map((q, qi) => {
+                                                {f.preguntasPre.map(q => {
                                                     const respPre  = f.pre.respuestas.find(r => r.preguntaId === q.id)
                                                     const qPost    = f.preguntasPost.find(p => p.orden === q.orden)
-                                                    const respPost = f.post && qPost
-                                                        ? f.post.respuestas.find(r => r.preguntaId === qPost.id)
-                                                        : null
-
-                                                    // Mostrar texto de la opción si tiene opciones definidas
-                                                    const getLabel = (pregunta, valor) => {
-                                                        if (!pregunta.opciones || valor === undefined || valor === null) return valor ?? '—'
-                                                        try {
-                                                            const opts = JSON.parse(pregunta.opciones)
-                                                            return opts[Number(valor)] ?? valor
-                                                        } catch { return valor }
-                                                    }
-
+                                                    const respPost = f.post && qPost ? f.post.respuestas.find(r => r.preguntaId === qPost.id) : null
                                                     return (
                                                         <tr key={q.id} className="border-b border-gray-50 hover:bg-gray-50">
                                                             <td className="px-3 py-2 text-gray-700 max-w-xs">
-                                                                <p className="truncate">{limpiarTexto(q.texto)}</p>
+                                                                <p className="truncate">
+                                                                    {q.texto
+                                                                        .replace(/^(Condición física|Síntomas de estrés|Experiencias emocionales|Estrategia|Actividad de interés|Frecuencia estrategia|Cambio en condición física|Cambio en síntomas|Cambio emocional) — /i, '')
+                                                                        .replace(/\s*\(Escala.*?\)/gi, '')
+                                                                        .replace(/\s*\(invertido\)/gi, '')
+                                                                        .trim()}
+                                                                </p>
                                                             </td>
                                                             <td className="px-3 py-2 text-center">
                                                                     <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-lg font-semibold">
-                                                                        {getLabel(q, respPre?.valor)}
+                                                                        {respPre?.valor ?? '—'}
                                                                     </span>
                                                             </td>
                                                             {f.post && (
                                                                 <td className="px-3 py-2 text-center">
                                                                         <span className="bg-green-50 text-green-700 px-2 py-0.5 rounded-lg font-semibold">
-                                                                            {qPost ? getLabel(qPost, respPost?.valor) : '—'}
+                                                                            {qPost ? (respPost?.valor ?? '—') : '—'}
                                                                         </span>
                                                                 </td>
                                                             )}
