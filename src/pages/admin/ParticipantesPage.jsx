@@ -10,20 +10,22 @@ export default function ParticipantesPage() {
     const esAdmin = usuario?.rol === 'ADMIN'
 
     const [participantes, setParticipantes] = useState([])
-    const [total, setTotal] = useState(0)
-    const [pagina, setPagina] = useState(0)
-    const [busqueda, setBusqueda] = useState('')
-    const [cargando, setCargando] = useState(true)
-    const [exportando, setExportando] = useState(false)
-    const [programas, setProgramas] = useState([])
-    const [modalEditar, setModalEditar] = useState(null)
-    const [guardando, setGuardando] = useState(false)
+    const [total,         setTotal]         = useState(0)
+    const [pagina,        setPagina]        = useState(0)
+    const [busqueda,      setBusqueda]      = useState('')
+    const [cargando,      setCargando]      = useState(true)
+    const [exportando,    setExportando]    = useState(false)
+    const [programas,     setProgramas]     = useState([])
+    const [modalEditar,   setModalEditar]   = useState(null)
+    const [guardando,     setGuardando]     = useState(false)
     const size = 10
 
-    const cargar = async (page = 0) => {
+    const cargar = async (page = 0, termino = busqueda) => {
         setCargando(true)
         try {
-            const res = await api.get(`/participantes?page=${page}&size=${size}`)
+            const params = new URLSearchParams({ page, size })
+            if (termino.trim()) params.append('nombre', termino.trim())
+            const res = await api.get(`/participantes?${params}`)
             setParticipantes(res.data.contenido)
             setTotal(res.data.totalElementos)
             setPagina(page)
@@ -34,8 +36,9 @@ export default function ParticipantesPage() {
         }
     }
 
+    // Carga inicial
     useEffect(() => {
-        cargar()
+        cargar(0, '')
         if (!PROGRAMAS_CACHE.data) {
             api.get('/participantes/programas').then(res => {
                 PROGRAMAS_CACHE.data = res.data
@@ -45,6 +48,14 @@ export default function ParticipantesPage() {
             setProgramas(PROGRAMAS_CACHE.data)
         }
     }, [])
+
+    // Búsqueda con debounce 400ms — va al backend
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            cargar(0, busqueda)
+        }, 400)
+        return () => clearTimeout(timer)
+    }, [busqueda])
 
     const handleExportar = async () => {
         setExportando(true)
@@ -61,7 +72,8 @@ export default function ParticipantesPage() {
                 'Teléfono': p.telefono || '',
                 'Estamento': p.estamento || '',
                 'Sede': p.sede || '',
-                'Fecha registro': p.fechaRegistro ? new Date(p.fechaRegistro).toLocaleString('es-CO') : ''
+                'Fecha registro': p.fechaRegistro
+                    ? new Date(p.fechaRegistro).toLocaleString('es-CO') : ''
             }))
             const hoja = XLSX.utils.json_to_sheet(datos)
             const libro = XLSX.utils.book_new()
@@ -79,14 +91,14 @@ export default function ParticipantesPage() {
         try {
             await api.put(`/participantes/${modalEditar.id}`, {
                 numeroIdentificacion: modalEditar.numeroIdentificacion,
-                nombreCompleto: modalEditar.nombreCompleto,
-                correoInstitucional: modalEditar.correoInstitucional,
-                programaAcademico: modalEditar.programaAcademico,
-                semestre: modalEditar.semestre ? parseInt(modalEditar.semestre) : null,
-                tipoDocumento: modalEditar.tipoDocumento,
-                sede: modalEditar.sede,
-                telefono: modalEditar.telefono,
-                estamento: modalEditar.estamento
+                nombreCompleto:       modalEditar.nombreCompleto,
+                correoInstitucional:  modalEditar.correoInstitucional,
+                programaAcademico:    modalEditar.programaAcademico,
+                semestre:             modalEditar.semestre ? parseInt(modalEditar.semestre) : null,
+                tipoDocumento:        modalEditar.tipoDocumento,
+                sede:                 modalEditar.sede,
+                telefono:             modalEditar.telefono,
+                estamento:            modalEditar.estamento,
             })
             setModalEditar(null)
             cargar(pagina)
@@ -97,17 +109,12 @@ export default function ParticipantesPage() {
         }
     }
 
-    const participantesFiltrados = participantes.filter(p =>
-        p.nombreCompleto.toLowerCase().includes(busqueda.toLowerCase()) ||
-        p.numeroIdentificacion.includes(busqueda)
-    )
-
     const totalPaginas = Math.ceil(total / size)
 
     return (
         <div className="flex flex-col gap-6">
 
-            {/* Modal editar — solo llega aquí si es ADMIN */}
+            {/* Modal editar */}
             {modalEditar && esAdmin && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
                      onClick={() => setModalEditar(null)}>
@@ -121,7 +128,7 @@ export default function ParticipantesPage() {
                         <div className="flex flex-col gap-3">
                             <Campo label="Programa académico">
                                 <select value={modalEditar.programaAcademico}
-                                        onChange={e => setModalEditar({...modalEditar, programaAcademico: e.target.value})}
+                                        onChange={e => setModalEditar({ ...modalEditar, programaAcademico: e.target.value })}
                                         className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-50 outline-none focus:border-green-500">
                                     <option value="">Selecciona</option>
                                     {programas.map(p => <option key={p} value={p}>{p}</option>)}
@@ -131,24 +138,26 @@ export default function ParticipantesPage() {
                             {modalEditar.estamento === 'ESTUDIANTE' && (
                                 <Campo label="Semestre">
                                     <select value={modalEditar.semestre || ''}
-                                            onChange={e => setModalEditar({...modalEditar, semestre: e.target.value})}
+                                            onChange={e => setModalEditar({ ...modalEditar, semestre: e.target.value })}
                                             className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-50 outline-none focus:border-green-500">
                                         <option value="">Sin semestre</option>
-                                        {[1,2,3,4,5,6,7,8,9,10].map(s => <option key={s} value={s}>{s}°</option>)}
+                                        {[1,2,3,4,5,6,7,8,9,10].map(s => (
+                                            <option key={s} value={s}>{s}°</option>
+                                        ))}
                                     </select>
                                 </Campo>
                             )}
 
                             <Campo label="Teléfono">
                                 <input type="tel" value={modalEditar.telefono || ''}
-                                       onChange={e => setModalEditar({...modalEditar, telefono: e.target.value})}
+                                       onChange={e => setModalEditar({ ...modalEditar, telefono: e.target.value })}
                                        placeholder="Ej. 3001234567"
                                        className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-50 outline-none focus:border-green-500" />
                             </Campo>
 
                             <Campo label="Estamento">
                                 <select value={modalEditar.estamento || 'ESTUDIANTE'}
-                                        onChange={e => setModalEditar({...modalEditar, estamento: e.target.value})}
+                                        onChange={e => setModalEditar({ ...modalEditar, estamento: e.target.value })}
                                         className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-50 outline-none focus:border-green-500">
                                     {['ESTUDIANTE','DOCENTE','ADMINISTRATIVO','GRADUADO','COMUNIDAD'].map(e => (
                                         <option key={e} value={e}>{e.charAt(0) + e.slice(1).toLowerCase()}</option>
@@ -158,9 +167,9 @@ export default function ParticipantesPage() {
 
                             <div className="bg-gray-50 rounded-xl p-3 flex flex-col gap-1">
                                 <p className="text-xs font-semibold text-gray-500 mb-1">Datos no editables</p>
-                                <InfoFija label="Nombre" valor={modalEditar.nombreCompleto} />
+                                <InfoFija label="Nombre"    valor={modalEditar.nombreCompleto} />
                                 <InfoFija label="Documento" valor={modalEditar.numeroIdentificacion} />
-                                <InfoFija label="Correo" valor={modalEditar.correoInstitucional} />
+                                <InfoFija label="Correo"    valor={modalEditar.correoInstitucional} />
                             </div>
                         </div>
 
@@ -178,6 +187,7 @@ export default function ParticipantesPage() {
                 </div>
             )}
 
+            {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
                     <h2 className="text-xl font-semibold text-gray-800">Participantes</h2>
@@ -191,21 +201,32 @@ export default function ParticipantesPage() {
                 )}
             </div>
 
+            {/* Tabla */}
             <div className="bg-white rounded-2xl border border-gray-100">
-                <div className="p-4 border-b border-gray-100">
+                <div className="p-4 border-b border-gray-100 flex items-center gap-3">
                     <input
                         type="text"
                         placeholder="Buscar por nombre o número de identificación..."
                         value={busqueda}
                         onChange={e => setBusqueda(e.target.value)}
-                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-gray-50 outline-none focus:border-green-500 focus:bg-white"
+                        className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-gray-50 outline-none focus:border-green-500 focus:bg-white"
                     />
+                    {busqueda && (
+                        <button onClick={() => setBusqueda('')}
+                                className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 rounded-lg hover:bg-gray-100 transition-all">
+                            ✕ Limpiar
+                        </button>
+                    )}
                 </div>
 
                 {cargando ? (
                     <div className="p-8 text-center text-sm text-gray-400">Cargando...</div>
-                ) : participantesFiltrados.length === 0 ? (
-                    <div className="p-8 text-center text-sm text-gray-400">No se encontraron participantes</div>
+                ) : participantes.length === 0 ? (
+                    <div className="p-8 text-center text-sm text-gray-400">
+                        {busqueda
+                            ? `No se encontraron participantes para "${busqueda}"`
+                            : 'No hay participantes registrados'}
+                    </div>
                 ) : (
                     <table className="w-full">
                         <thead>
@@ -220,7 +241,7 @@ export default function ParticipantesPage() {
                         </tr>
                         </thead>
                         <tbody>
-                        {participantesFiltrados.map(p => (
+                        {participantes.map(p => (
                             <tr key={p.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                                 <td className="px-4 py-3">
                                     <div className="flex items-center gap-3">
@@ -235,7 +256,7 @@ export default function ParticipantesPage() {
                                 <td className="px-4 py-3 text-sm text-gray-600">{p.semestre ? `${p.semestre}°` : '—'}</td>
                                 {esAdmin && (
                                     <td className="px-4 py-3">
-                                        <button onClick={() => setModalEditar({...p})}
+                                        <button onClick={() => setModalEditar({ ...p })}
                                                 className="text-xs text-blue-500 hover:text-blue-700 font-semibold transition-all">
                                             Editar
                                         </button>
@@ -247,9 +268,14 @@ export default function ParticipantesPage() {
                     </table>
                 )}
 
+                {/* Paginación */}
                 {totalPaginas > 1 && (
                     <div className="p-4 flex items-center justify-between border-t border-gray-100">
-                        <span className="text-xs text-gray-400">Página {pagina + 1} de {totalPaginas}</span>
+                        <span className="text-xs text-gray-400">
+                            {busqueda
+                                ? `${total} resultado${total !== 1 ? 's' : ''} para "${busqueda}"`
+                                : `Página ${pagina + 1} de ${totalPaginas}`}
+                        </span>
                         <div className="flex gap-2">
                             <button onClick={() => cargar(pagina - 1)} disabled={pagina === 0}
                                     className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-all">
